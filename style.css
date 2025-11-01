@@ -40,7 +40,7 @@ header {
   grid-template-columns: 1fr 0.5fr 1fr;
   grid-template-rows: 1fr 0.5fr 1fr;
   width: 90vmin; 
-  max-width: 500px;
+  max-width: 90vw;
   aspect-ratio: 1 / 1;
   margin: 0 auto;
   box-sizing: border-box;
@@ -329,7 +329,12 @@ header {
   z-index: 9999;
 }
 
-
+/* small screen and landscape */
+@media screen and (max-height: 600px) and (orientation: landscape) {
+  .ludo-board {
+    width: 97vmin;
+  }
+}
 
 /* Tablet and small desktop */
 @media (min-width: 768px) {
