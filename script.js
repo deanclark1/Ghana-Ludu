@@ -330,5 +330,11 @@ dice.addEventListener('click', function () {
 
   // Handle the roll for the current player
   handleDiceRoll(result);
+
+  //google tag analytics
+  gtag('event', 'dice_clicked', {
+    event_category: 'gameplay',
+    event_label: 'user clicked dice'
+  });
 });
 

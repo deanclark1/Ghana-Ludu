@@ -15,7 +15,22 @@ header {
   align-items: center;
   text-align: center;
 }
+.instructions {
+  font-size: 1rem;
+  color: #ff1900;
+  font-weight: 500;
+  margin-top: 0.5rem;
+}
+.instructions {
+  opacity: 0;
+  animation: fadeIn 1s ease forwards;
+}
 
+@keyframes fadeIn {
+  to {
+    opacity: 1;
+  }
+}
 .container {
   display: flex;
   flex-direction: column;
@@ -281,6 +296,20 @@ header {
   border-radius: 50%;
 }
 
+.token.selectable {
+  outline: 3px solid gold;
+  box-shadow: 0 0 10px gold;
+  transform: scale(1.1);
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.token.selectable:hover {
+  transform: scale(1.15);
+  box-shadow: 0 0 15px yellow;
+}
+
+
 .red-tokens .token { 
   background: #e74c3c; 
 }
@@ -300,6 +329,7 @@ header {
   transform: scale(0.8);
   pointer-events: none;
   filter: grayscale(100%);
+  color: transparent;
 }
 
 .token.stack-1 { 
