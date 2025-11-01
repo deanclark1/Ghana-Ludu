@@ -329,12 +329,7 @@ header {
   z-index: 9999;
 }
 
-/* small screen and landscape */
-@media screen and (max-height: 600px) and (orientation: landscape) {
-  .ludo-board {
-    width: 97vmin;
-  }
-}
+
 
 /* Tablet and small desktop */
 @media (min-width: 768px) {
@@ -423,3 +418,14 @@ header {
   }
  
 }
+
+/* small screen and landscape */
+/* @media screen and (max-height: 600px) and (orientation: landscape) {
+  
+  .ludo-board {
+    width: 172vmin;
+  }
+  .dice {
+    top: 0.5rem;
+  }
+} */
