@@ -66,10 +66,13 @@ header {
 
 .keeping-tabs-on-what-is-happening {
   display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
   flex-direction: row;
   gap: 1rem;
   width: 80%;
   margin: 0 auto;
+  min-height: 100px;
 }
 
 .player-playing,
@@ -92,6 +95,14 @@ header {
 .next-player-title {
   font-weight: bold;
 }
+
+.playing-status,
+.player-activity-container {
+  flex: 1 1 45%; 
+  min-width: 250px; 
+  padding: 0.5rem 1rem;
+  box-sizing: border-box;
+}
 .home {
   padding: .3rem;
   border: 1px solid #1C1F26;
@@ -102,10 +113,18 @@ header {
   filter: brightness(1.2) ;
   box-shadow: 0 0 15px rgba(255, 255, 255, 0.4);
 }
-.yellow-home.player--active { box-shadow: 0 0 25px rgba(241, 196, 15, 0.8); }
-.blue-home.player--active   { box-shadow: 0 0 25px rgba(52, 152, 219, 0.9); }
-.red-home.player--active    { box-shadow: 0 0 25px rgba(231, 76, 60, 0.9); }
-.green-home.player--active  { box-shadow: 0 0 25px rgba(46, 204, 113, 0.9); }
+.yellow-home.player--active { 
+  box-shadow: 0 0 25px rgba(241, 196, 15, 0.8); 
+}
+.blue-home.player--active   { 
+  box-shadow: 0 0 25px rgba(52, 152, 219, 0.9); 
+}
+.red-home.player--active    { 
+  box-shadow: 0 0 25px rgba(231, 76, 60, 0.9); 
+}
+.green-home.player--active  { 
+  box-shadow: 0 0 25px rgba(46, 204, 113, 0.9); 
+}
 
 .green-home {
   grid-area: 1 / 1 / 2 / 2;
