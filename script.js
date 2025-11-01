@@ -4,7 +4,6 @@ let dice = document.querySelector(".dice");
 const dieDisplay = document.querySelector("i");
 let displayCurrentPlayer = document.querySelector(".display-current-player");
 let displayPlayerStatus = document.querySelector(".player-status");
-let playerActivityContainer = document.querySelector(".player-activity-container");
 let playerTurn = document.querySelector(".player-turn");
 let playerCommentary = document.querySelector(".commentary");
 
@@ -63,15 +62,30 @@ const players = {
 };
 
 let currentPlayer = "yellow";
-displayCurrentPlayer.textContent = currentPlayer
+
+
+displayCurrentPlayer.textContent = `${currentPlayer} Is starting the game`;
+displayPlayerStatus.textContent = '';
+
+function highlightCurrentPlayer() {
+  // Highlight the current player's home
+  const homes = document.querySelectorAll(".home");
+  homes.forEach(home => home.classList.remove("player--active")); // Remove from all
+
+  const activeHome = document.querySelector(`.${currentPlayer}-home`);
+  if (activeHome) {
+    activeHome.classList.add("player--active");
+  }
+}
 
 function nextPlayer() {
   const order = ["yellow", "blue", "red", "green"];
   const index = order.indexOf(currentPlayer);
   currentPlayer = order[(index + 1) % order.length];
   console.log(`Next player: ${currentPlayer}`);
-  playerTurn.textContent = currentPlayer
- 
+  playerTurn.textContent = currentPlayer;
+
+  highlightCurrentPlayer();
 }
 
 function getNextCellPosition(currentCell, steps, currentPlayer) {
@@ -125,16 +139,16 @@ function retireToken(token, player) {
   
   token.dataset.position = "retired";
 
-  // ✅ Track retirement
+  // Track retirement
   player.retiredCount++;
   console.log(`${player.color} has retired ${player.retiredCount} token(s)`);
   playerCommentary.textContent = `${player.name} has retired ${player.retiredCount} token(s) 🎉`;
 
 
-  // ✅ Check win condition
+  // Check win condition
   if (player.retiredCount === 4) {
     playerCommentary.textContent = `🎉 ${player.name.toUpperCase()} wins the game!`;
-    console.log(`🎉 ${player.name.toUpperCase()} wins the game!`);
+    console.log(`${player.name.toUpperCase()} wins the game!!!`);
     declareWinner(player.name);
   }
 
@@ -144,7 +158,7 @@ function declareWinner(color) {
   const overlay = document.createElement("div");
   overlay.className = "winner-overlay";
   overlay.innerHTML = `
-    <h1 style="color:${color}; text-align:center;">🎉 ${color.toUpperCase()} Wins the Game! 🎉</h1>
+    <h1 style="color:${color}; text-align:center;"> ${color.toUpperCase()} Wins the Game! </h1>
   `;
   document.body.appendChild(overlay);
 
@@ -180,7 +194,6 @@ function moveToken(token, steps) {
     const lastSafeCell = player.safeCells[player.safeCells.length - 1];
 
     const enteringSafeZone = player.safeCells.includes(newPos);
-    displayPlayerStatus.textContent = `Is ${currentPlayer} entering safe zone: ${enteringSafeZone}`;
     console.log(`Is ${currentPlayer} entering safe zone: ${enteringSafeZone}`);
 
     // ✅ If player is in their safe zone
@@ -229,11 +242,11 @@ function moveTokenToCell(token, cellNumber) {
 
 }
 
+
 function handleDiceRoll(result) {
   const player = players[currentPlayer];
-  displayCurrentPlayer.textContent = `${currentPlayer}`;
+  displayCurrentPlayer.textContent = `${currentPlayer} just rolled a ${result}`;
 
-  displayPlayerStatus.textContent = `${currentPlayer} rolled a ${result}`;
   
   console.log(`${currentPlayer} rolled a ${result}`);
 
