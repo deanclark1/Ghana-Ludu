@@ -167,79 +167,100 @@ function declareWinner(color) {
 }
 
 function moveToken(token, steps) {
-
   const player = players[currentPlayer];
   let currentPos = parseInt(token.dataset.position || "0");
 
-  if (currentPos === "retired") {
-    console.log(`${player.color} token already retired.`);
-    return;
-  }
+  if (currentPos === "retired") return console.log(`${player.color} token already retired.`);
 
-
-
-  // If the token is still at home and you roll 6, move to cell 1
   if (currentPos === 0 && steps === 6) {
     currentPos = player.startCell;
     token.dataset.position = currentPos;
     moveTokenToCell(token, currentPos);
-
     token.classList.add("active-token");
     token.style.background = player.color;
     console.log(`${currentPlayer} moved out to start (cell ${currentPos})`);
   } 
-  // If the token is already on board, move forward
   else if (currentPos > 0) {
     const newPos = getNextCellPosition(currentPos, steps, currentPlayer);
     const lastSafeCell = player.safeCells[player.safeCells.length - 1];
 
-    const enteringSafeZone = player.safeCells.includes(newPos);
-    console.log(`Is ${currentPlayer} entering safe zone: ${enteringSafeZone}`);
-
-    // ✅ If player is in their safe zone
+    // ✅ Safe zone / retirement logic (unchanged)
     if (player.safeCells.includes(currentPos)) {
       const distanceToEnd = lastSafeCell - currentPos;
       if (steps === distanceToEnd + 1) {
-        console.log(`${currentPlayer} token retired! 🎉`);
         retireToken(token, player);
-        // playerCommentary.textContent = `${currentPlayer} token retired! 🎉`;
         return;
       } else if (steps > distanceToEnd + 1) {
         displayPlayerStatus.textContent = `${currentPlayer} rolled too high (${steps}), cannot move.`;
         return;
       }
     }
-    // If a current player's token is stack on top of each other at least 2 stacks, other player's token cannot cross over. only the current player can stack on. others will be stuck till the stack is just one token.
-    token.dataset.position = newPos;
 
-    if (currentPos > 72) currentPos = 72; // max limit
-    moveTokenToCell(token, newPos);
-    token.classList.add("active-token");
-    token.style.background = player.color;
-    console.log(`${currentPlayer} moved from cell ${currentPos} → ${newPos}`);
-  } else {
+    // 🧩 Only this now
+    moveTokenStepByStep(token, currentPos, steps, player);
+  } 
+  else {
     console.log("Need a 6 to start!");
   }
 }
 
+
 function moveTokenToCell(token, cellNumber) {
   const targetCell = cellMap[cellNumber];
-  
   if (!targetCell) return console.error("Cell not found:", cellNumber);
-  
-  // Remove token from previous parent
-  if (token.parentElement) token.parentElement.removeChild(token);
-  targetCell.appendChild(token);
 
-  // Remove old stack classes
-  token.classList.remove("stack-1", "stack-2", "stack-3", "stack-4");
+  const startRect = token.getBoundingClientRect();
+  const targetRect = targetCell.getBoundingClientRect();
 
-  // Stack tokens dynamically
-  const tokensInCell = targetCell.querySelectorAll(".token");
-  tokensInCell.forEach((t, i) => {
-    t.classList.add(`stack-${i + 1}`); // stack-1, stack-2, etc.
-  });
+  // Calculate how far to move
+  const deltaX = targetRect.left - startRect.left;
+  const deltaY = targetRect.top - startRect.top;
 
+  // Temporarily use transform to animate movement
+  token.style.transition = "transform 0.4s ease";
+  token.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
+
+  // After animation ends, move the token to the new cell
+  setTimeout(() => {
+    token.style.transition = "none";
+    token.style.transform = "none";
+
+    // Actually move the token in DOM
+    if (token.parentElement) token.parentElement.removeChild(token);
+    targetCell.appendChild(token);
+
+    // Stack tokens dynamically
+    const tokensInCell = targetCell.querySelectorAll(".token");
+    tokensInCell.forEach((t, i) => {
+      t.classList.remove("stack-1", "stack-2", "stack-3", "stack-4");
+      t.classList.add(`stack-${i + 1}`);
+    });
+  }, 500); // match animation duration
+}
+
+function moveTokenStepByStep(token, startPos, steps, player) {
+  const stepDelay = 400; // adjust for slower animation
+  let stepsTaken = 0;
+  let currentCell = startPos;
+
+  const interval = setInterval(() => {
+    // Calculate next cell
+    const nextCell = getNextCellPosition(currentCell, 1, player.name);
+
+    // Update visuals
+    token.dataset.position = nextCell;
+    moveTokenToCell(token, nextCell);
+    token.style.background = player.color;
+
+    currentCell = nextCell;
+    stepsTaken++;
+
+    // Stop when steps are done
+    if (stepsTaken >= steps) {
+      clearInterval(interval);
+      console.log(`${player.name} finished moving to cell ${currentCell}`);
+    }
+  }, stepDelay);
 }
 
 
