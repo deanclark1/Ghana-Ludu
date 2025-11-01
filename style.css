@@ -94,7 +94,7 @@ header {
 .blue-home .img {
   background: url('./images/MAJID.jpg') center center no-repeat;
   background-size: cover;
-  height: 32vmin;;
+  /* height: 32vmin; */
   display: flex;
 }
 
