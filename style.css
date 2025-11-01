@@ -94,7 +94,7 @@ header {
 .blue-home .img {
   background: url('./images/MAJID.jpg') center center no-repeat;
   background-size: cover;
-  height: -webkit-fill-available;
+  height: 32vmin;;
   display: flex;
 }
 
@@ -376,6 +376,9 @@ header {
     padding: .5rem;
   }
 
+  .home .img .image-caption h2{
+    font-size: 10px;
+  }
   .dice {
     top: 1rem;
     background-color: transparent;
@@ -385,11 +388,6 @@ header {
   .center img {
     width: 80%;
   }
-
-  .home .img .image-caption h2{
-    font-size: 10px;
-  }
-
 }
 
 @media (min-width: 992px) {
