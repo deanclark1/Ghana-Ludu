@@ -70,7 +70,7 @@ displayPlayerStatus.textContent = '';
 function highlightCurrentPlayer() {
   // Highlight the current player's home
   const homes = document.querySelectorAll(".home");
-  homes.forEach(home => home.classList.remove("player--active")); // Remove from all
+  homes.forEach(home => home.classList.remove("player--active")); 
 
   const activeHome = document.querySelector(`.${currentPlayer}-home`);
   if (activeHome) {
@@ -123,13 +123,10 @@ const animateDice = function () {
     dice.classList.remove("roll-animate");
   }, 500);
 
-  // Remove animation class
   dice.classList.remove("roll-animate");
 
-  // Trigger reflow
   void dice.offsetWidth;
 
-  // Add animation class
   dice.classList.add("roll-animate");
 }
 
@@ -139,7 +136,6 @@ function retireToken(token, player) {
   
   token.dataset.position = "retired";
 
-  // Track retirement
   player.retiredCount++;
   console.log(`${player.color} has retired ${player.retiredCount} token(s)`);
   playerCommentary.textContent = `${player.name} has retired ${player.retiredCount} token(s) 🎉`;
@@ -147,7 +143,7 @@ function retireToken(token, player) {
 
   // Check win condition
   if (player.retiredCount === 4) {
-    playerCommentary.textContent = `🎉 ${player.name.toUpperCase()} wins the game!`;
+    playerCommentary.textContent = ` ${player.name.toUpperCase()} wins the game!`;
     console.log(`${player.name.toUpperCase()} wins the game!!!`);
     declareWinner(player.name);
   }
@@ -184,7 +180,6 @@ function moveToken(token, steps) {
     const newPos = getNextCellPosition(currentPos, steps, currentPlayer);
     const lastSafeCell = player.safeCells[player.safeCells.length - 1];
 
-    // ✅ Safe zone / retirement logic (unchanged)
     if (player.safeCells.includes(currentPos)) {
       const distanceToEnd = lastSafeCell - currentPos;
       if (steps === distanceToEnd + 1) {
@@ -196,7 +191,6 @@ function moveToken(token, steps) {
       }
     }
 
-    // 🧩 Only this now
     moveTokenStepByStep(token, currentPos, steps, player);
   } 
   else {
@@ -216,38 +210,32 @@ function moveTokenToCell(token, cellNumber) {
   const deltaX = targetRect.left - startRect.left;
   const deltaY = targetRect.top - startRect.top;
 
-  // Temporarily use transform to animate movement
   token.style.transition = "transform 0.4s ease";
   token.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
 
-  // After animation ends, move the token to the new cell
   setTimeout(() => {
     token.style.transition = "none";
     token.style.transform = "none";
 
-    // Actually move the token in DOM
     if (token.parentElement) token.parentElement.removeChild(token);
     targetCell.appendChild(token);
 
-    // Stack tokens dynamically
     const tokensInCell = targetCell.querySelectorAll(".token");
     tokensInCell.forEach((t, i) => {
       t.classList.remove("stack-1", "stack-2", "stack-3", "stack-4");
       t.classList.add(`stack-${i + 1}`);
     });
-  }, 500); // match animation duration
+  }, 500); 
 }
 
 function moveTokenStepByStep(token, startPos, steps, player) {
-  const stepDelay = 400; // adjust for slower animation
+  const stepDelay = 400; 
   let stepsTaken = 0;
   let currentCell = startPos;
 
   const interval = setInterval(() => {
-    // Calculate next cell
     const nextCell = getNextCellPosition(currentCell, 1, player.name);
 
-    // Update visuals
     token.dataset.position = nextCell;
     moveTokenToCell(token, nextCell);
     token.style.background = player.color;
@@ -283,9 +271,7 @@ function handleDiceRoll(result) {
     return;
   }
 
-  // Choose which token to move:
-  //  - If result = 6 → try to move a token that’s still at home
-  //  - Otherwise, move the first one already on board
+  
   let tokenToMove = null;
 
   if (result === 6) {
@@ -323,12 +309,10 @@ function handleDiceRoll(result) {
 dice.addEventListener('click', function () {
   const result = Math.trunc(Math.random() * 6) + 1;
 
-  // Animate and display dice face
   animateDice();
   dieDisplay.classList.remove(...diceFaces);
   dieDisplay.classList.add(diceFaces[result - 1]);
 
-  // Handle the roll for the current player
   handleDiceRoll(result);
 
   //google tag analytics
