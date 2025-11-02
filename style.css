@@ -165,23 +165,27 @@ header {
 .red-home .img,
 .yellow-home .img,
 .blue-home .img {
-  background: url('./images/MAJID.jpg') center center no-repeat;
+  
   background-size: cover;
   height: 32vmin;
   display: flex;
 }
 
 .green-home .img {
+  background: url('./images/van-vicker.jpg') center center no-repeat;
   justify-content: flex-start;
   align-items: flex-start;
 }
 .red-home .img {
+  background: url('./images/nadia.jpg') center center no-repeat;
   justify-content: flex-end;
 }
 .yellow-home .img {
+  background: url('./images/j.jpg') center center no-repeat;
   align-items: flex-end;
 }
 .blue-home .img {
+  background: url('./images/MAJID.jpg') center center no-repeat;
   justify-content: flex-end;
   align-items: flex-end;
 }
@@ -193,7 +197,11 @@ header {
 .home .img .image-caption h2{
   font-size: 8px;
   padding-left: 5px;
-  color: white;
+  color: #1C1F26;
+}
+
+.blue-caption {
+  color: white !important;
 }
 
 /* player path */
