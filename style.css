@@ -424,7 +424,25 @@ header {
   font-size: 3rem;
   z-index: 9999;
 }
+/* Todo Styles */
+#todo {
+  max-width: 300px;
+}
+#todo-list {
+  padding-inline-start: 14px;
+}
+#todo-list li {
+  cursor: pointer;
+  padding: 4px 0;
+}
+.done {
+  text-decoration: line-through;
+  opacity: 0.6;
+}
 
+footer {
+  text-align: center;
+}
 /* small screen and landscape */
 @media screen and (max-height: 600px) and (orientation: landscape) {
   
