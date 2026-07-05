@@ -1,324 +1,418 @@
 'use strict';
 
-let dice = document.querySelector(".dice");
-const dieDisplay = document.querySelector("i");
-let displayCurrentPlayer = document.querySelector(".display-current-player");
-let displayPlayerStatus = document.querySelector(".player-status");
-let playerTurn = document.querySelector(".player-turn");
-let playerCommentary = document.querySelector(".commentary");
+/* =========================================================
+   Ghana Ludu — UI LAYER (script.js) — STEP 4
+   Renders gameState and turns clicks into game actions.
+   All rules live in game.js — this file never decides them.
 
-let tokens = document.querySelectorAll(".yellow-tokens .token");
-let currentPosition = 0;
+   Flow of a turn (roll banking):
+   1. Player rolls. Every 6 banks and they roll again.
+   2. First non-6 closes the bank; the queue is spent in order.
+   3. For each value: legal moves come from game.js. One option
+      auto-plays; several light up gold and the player picks.
+   4. Traps resolve on play: bounces walk back, lone-striker
+      kicks burn the rest of the queue. No hints, no warnings —
+      paying attention IS the game.
+   ========================================================= */
 
-const cells = document.querySelectorAll(".cell");
-const cellMap = Array.from(cells).reduce((map, cell) => {
+// Set to true later if you want a beginner mode that flags kicks.
+const SHOW_HINTS = false;
+
+// ---- Element references ----
+const dice = document.querySelector('.dice');
+const dieDisplay = document.querySelector('.dice i');
+const displayCurrentPlayer = document.querySelector('.display-current-player');
+const displayPlayerStatus = document.querySelector('.player-status');
+const playerTurn = document.querySelector('.player-turn');
+const playerCommentary = document.querySelector('.commentary');
+const commentRow = document.querySelector('.comment-row');
+
+const diceFaces = [
+  'fa-dice-one', 'fa-dice-two', 'fa-dice-three',
+  'fa-dice-four', 'fa-dice-five', 'fa-dice-six',
+];
+
+const cellMap = Array.from(document.querySelectorAll('.cell')).reduce((map, cell) => {
   const match = cell.className.match(/cell-(\d+)/);
   if (match) map[parseInt(match[1])] = cell;
   return map;
 }, {});
 
-const diceFaces = [
-  "fa-dice-one",
-  "fa-dice-two",
-  "fa-dice-three",
-  "fa-dice-four",
-  "fa-dice-five",
-  "fa-dice-six"
-];
+const tokenEls = {};
+const baseContainers = {};
 
-const players = {
-  yellow: {
-    tokens: document.querySelectorAll(".yellow-tokens .token"),
-    safeCells: [67, 68, 69, 70, 71],
-    startCell: 1,
-    color: "#e7c84d",
-    name: "yellow",
-    retiredCount: 0
-  },
-  green: {
-    tokens: document.querySelectorAll(".green-tokens .token"),
-    safeCells: [13, 14, 15, 16, 17],
-    startCell: 19,
-    color: "#2ecc71",
-    name: "green",
-    retiredCount: 0
-  },
-  red: {
-    tokens: document.querySelectorAll(".red-tokens .token"),
-    safeCells: [31, 32, 33, 34, 35],
-    startCell: 37,
-    color: "#e74c3c",
-    name: "red",
-    retiredCount: 0
-  },
-  blue: {
-    tokens: document.querySelectorAll(".blue-tokens .token"),
-    safeCells: [49, 50, 51, 52, 53],
-    startCell: 55,
-    color: "#3498db",
-    name: "blue",
-    retiredCount: 0
-  }
-};
-
-let currentPlayer = "yellow";
-
-
-displayCurrentPlayer.textContent = `${currentPlayer} Is starting the game`;
-displayPlayerStatus.textContent = '';
-
-function highlightCurrentPlayer() {
-  // Highlight the current player's home
-  const homes = document.querySelectorAll(".home");
-  homes.forEach(home => home.classList.remove("player--active")); 
-
-  const activeHome = document.querySelector(`.${currentPlayer}-home`);
-  if (activeHome) {
-    activeHome.classList.add("player--active");
-  }
+for (const color of Object.keys(PLAYERS_META)) {
+  const container = document.querySelector(`.${color}-tokens`);
+  baseContainers[color] = container;
+  container.querySelectorAll('.token').forEach((el, i) => {
+    const id = `${color}-${i + 1}`;
+    el.dataset.tokenId = id;
+    tokenEls[id] = el;
+    el.addEventListener('click', () => handleTokenClick(id));
+  });
 }
 
-function nextPlayer() {
-  const order = ["yellow", "blue", "red", "green"];
-  const index = order.indexOf(currentPlayer);
-  currentPlayer = order[(index + 1) % order.length];
-  console.log(`Next player: ${currentPlayer}`);
-  playerTurn.textContent = currentPlayer;
+// ---- The one source of truth ----
+const gameState = createGameState();
 
+let pendingMoves = [];
+
+// ---- Display helpers ----
+
+function setStatus(text) {
+  displayPlayerStatus.textContent = text;
+}
+
+function setCommentary(text) {
+  playerCommentary.textContent = text;
+}
+
+function highlightCurrentPlayer() {
+  document.querySelectorAll('.home').forEach(h => h.classList.remove('player--active'));
+  const activeHome = document.querySelector(`.${gameState.currentPlayer}-home`);
+  if (activeHome) activeHome.classList.add('player--active');
+}
+
+function updateTurnDisplay() {
+  playerTurn.textContent = gameState.currentPlayer;
   highlightCurrentPlayer();
 }
 
-function getNextCellPosition(currentCell, steps, currentPlayer) {
-  const allSafeZones = Object.entries(players)
-    .filter(([name]) => name !== currentPlayer)
-    .flatMap(([_, data]) => data.safeCells);
+function queueLabel() {
+  return gameState.rolledQueue.join(', ');
+}
 
-  let newCell = currentCell;
-  let moves = steps;
-
-  while (moves > 0) {
-    newCell++;
-
-    // If you pass the board max cell, wrap around
-    if (newCell > 72) newCell = 1;
-
-    // Skip if it's a safe cell of another player
-    if (allSafeZones.includes(newCell)) {
-      console.log(`Skipped safe cell ${newCell}`);
-      continue;
-    }
-
-    moves--;
+function kickCommentary(color, kick) {
+  if (kick.via === 'side') {
+    return `SIDE KICK! ${color} jumped tracks onto cell ${kick.cell} and sent ${kick.color} packing 😤`;
   }
-  console.log(`Next player: ${currentPlayer}`);
-
-  return newCell;
+  return `${color} kicked ${kick.color} back home! 😈`;
 }
 
+// ---- Token selection ----
 
-const animateDice = function () {
-  dice.classList.add("roll-animate");
-  
-  setTimeout(() => {
-    dice.classList.remove("roll-animate");
-  }, 500);
+function highlightChoices(moves) {
+  gameState.awaitingChoice = true;
+  pendingMoves = moves;
 
-  dice.classList.remove("roll-animate");
-
-  void dice.offsetWidth;
-
-  dice.classList.add("roll-animate");
-}
-
-function retireToken(token, player) {
-  token.classList.remove("active-token", "active-bg");
-  token.classList.add("retired");
-  
-  token.dataset.position = "retired";
-
-  player.retiredCount++;
-  console.log(`${player.color} has retired ${player.retiredCount} token(s)`);
-  playerCommentary.textContent = `${player.name} has retired ${player.retiredCount} token(s) 🎉`;
-
-
-  // Check win condition
-  if (player.retiredCount === 4) {
-    playerCommentary.textContent = ` ${player.name.toUpperCase()} wins the game!`;
-    console.log(`${player.name.toUpperCase()} wins the game!!!`);
-    declareWinner(player.name);
+  const byToken = groupMovesByToken(moves);
+  for (const [tokenId, tokenMoves] of Object.entries(byToken)) {
+    const el = tokenEls[tokenId];
+    if (!el) continue;
+    el.classList.add('selectable');
+    // No red glow unless beginner hints are on: spotting the
+    // kick (and the wall) is the player's job.
+    if (SHOW_HINTS && tokenMoves.some(m => m.kicks.length > 0)) {
+      el.classList.add('selectable-kick');
+    }
   }
 
+  setStatus(`${gameState.currentPlayer}, pick a token to move ${gameState.rolledQueue[0]} steps`);
 }
 
-function declareWinner(color) {
-  const overlay = document.createElement("div");
-  overlay.className = "winner-overlay";
-  overlay.innerHTML = `
-    <h1 style="color:${color}; text-align:center;"> ${color.toUpperCase()} Wins the Game! </h1>
-  `;
-  document.body.appendChild(overlay);
-
-  // Stop further moves
-  dice.removeEventListener("click", handleDiceRoll);
-}
-
-function moveToken(token, steps) {
-  const player = players[currentPlayer];
-  let currentPos = parseInt(token.dataset.position || "0");
-
-  if (currentPos === "retired") return console.log(`${player.color} token already retired.`);
-
-  if (currentPos === 0 && steps === 6) {
-    currentPos = player.startCell;
-    token.dataset.position = currentPos;
-    moveTokenToCell(token, currentPos);
-    token.classList.add("active-token");
-    token.style.background = player.color;
-    console.log(`${currentPlayer} moved out to start (cell ${currentPos})`);
-  } 
-  else if (currentPos > 0) {
-    const newPos = getNextCellPosition(currentPos, steps, currentPlayer);
-    const lastSafeCell = player.safeCells[player.safeCells.length - 1];
-
-    if (player.safeCells.includes(currentPos)) {
-      const distanceToEnd = lastSafeCell - currentPos;
-      if (steps === distanceToEnd + 1) {
-        retireToken(token, player);
-        return;
-      } else if (steps > distanceToEnd + 1) {
-        displayPlayerStatus.textContent = `${currentPlayer} rolled too high (${steps}), cannot move.`;
-        return;
-      }
-    }
-
-    moveTokenStepByStep(token, currentPos, steps, player);
-  } 
-  else {
-    console.log("Need a 6 to start!");
-  }
-}
-
-
-function moveTokenToCell(token, cellNumber) {
-  const targetCell = cellMap[cellNumber];
-  if (!targetCell) return console.error("Cell not found:", cellNumber);
-
-  const startRect = token.getBoundingClientRect();
-  const targetRect = targetCell.getBoundingClientRect();
-
-  // Calculate how far to move
-  const deltaX = targetRect.left - startRect.left;
-  const deltaY = targetRect.top - startRect.top;
-
-  token.style.transition = "transform 0.4s ease";
-  token.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
-
-  setTimeout(() => {
-    token.style.transition = "none";
-    token.style.transform = "none";
-
-    if (token.parentElement) token.parentElement.removeChild(token);
-    targetCell.appendChild(token);
-
-    const tokensInCell = targetCell.querySelectorAll(".token");
-    tokensInCell.forEach((t, i) => {
-      t.classList.remove("stack-1", "stack-2", "stack-3", "stack-4");
-      t.classList.add(`stack-${i + 1}`);
-    });
-  }, 500); 
-}
-
-function moveTokenStepByStep(token, startPos, steps, player) {
-  const stepDelay = 400; 
-  let stepsTaken = 0;
-  let currentCell = startPos;
-
-  const interval = setInterval(() => {
-    const nextCell = getNextCellPosition(currentCell, 1, player.name);
-
-    token.dataset.position = nextCell;
-    moveTokenToCell(token, nextCell);
-    token.style.background = player.color;
-
-    currentCell = nextCell;
-    stepsTaken++;
-
-    // Stop when steps are done
-    if (stepsTaken >= steps) {
-      clearInterval(interval);
-      console.log(`${player.name} finished moving to cell ${currentCell}`);
-    }
-  }, stepDelay);
-}
-
-
-function handleDiceRoll(result) {
-  const player = players[currentPlayer];
-  displayCurrentPlayer.textContent = `${currentPlayer} just rolled a ${result}`;
-
-  
-  console.log(`${currentPlayer} rolled a ${result}`);
-
-
-  // Filter tokens that are not retired
-  const availableTokens = Array.from(player.tokens).filter(
-    t => !t.classList.contains("retired-token")
+function clearChoices() {
+  gameState.awaitingChoice = false;
+  pendingMoves = [];
+  Object.values(tokenEls).forEach(el =>
+    el.classList.remove('selectable', 'selectable-kick')
   );
+  commentRow.innerHTML = '';
+}
 
-  if (availableTokens.length === 0) {
-    console.log(`${currentPlayer} has no tokens left.`);
-    nextPlayer();
+function groupMovesByToken(moves) {
+  return moves.reduce((groups, move) => {
+    (groups[move.tokenId] = groups[move.tokenId] || []).push(move);
+    return groups;
+  }, {});
+}
+
+function handleTokenClick(tokenId) {
+  if (!gameState.awaitingChoice) return;
+
+  const tokenMoves = pendingMoves.filter(m => m.tokenId === tokenId);
+  if (tokenMoves.length === 0) return;
+
+  if (tokenMoves.length === 1) {
+    const move = tokenMoves[0];
+    clearChoices();
+    playMove(move);
     return;
   }
 
-  
-  let tokenToMove = null;
+  showDirectionChoice(tokenMoves);
+}
 
-  if (result === 6) {
-    tokenToMove = availableTokens.find(
-      t => !t.dataset.position || t.dataset.position === "0"
-    );
-  }
+// Buttons show the INTENDED destination, never the outcome.
+// A blocked move looks identical to a clean one — that's the trap.
+function showDirectionChoice(tokenMoves) {
+  commentRow.innerHTML = '';
+  setStatus('Which way?');
 
-  if (!tokenToMove) {
-    tokenToMove = availableTokens.find(
-      t => t.dataset.position && t.dataset.position !== "retired" && parseInt(t.dataset.position) > 0
-    );
-  }
-
-  if (tokenToMove) {
-    moveToken(tokenToMove, result);
-  } else {
-    console.log(`No movable tokens for ${currentPlayer}. Need a 6 to start.`);
-    displayPlayerStatus.textContent = `No movable tokens for ${currentPlayer}. Need a 6 to start.`;
-  }
-
-  if (result !== 6) {
-    nextPlayer();
-  } else {
-    displayPlayerStatus.textContent = `${currentPlayer} rolled a ${result}, roll again!`
+  for (const move of tokenMoves) {
+    const btn = document.createElement('button');
+    btn.className = 'move-choice';
+    const arrow = move.direction === 'forward' ? '➡' : '⬅';
+    btn.textContent = `${arrow} ${move.direction} to cell ${move.intendedTo}`;
+    btn.addEventListener('click', () => {
+      clearChoices();
+      playMove(move);
+    });
+    commentRow.appendChild(btn);
   }
 }
-// Todo: Ludu Rules
-// 1. Home Kick
-// 2. Back Kick
-// 3. Forward Kick
-// 4. When a current player's token is stack on top at least 2 stacks, other player's token cannot cross over.
-// 5. Be able to Select which token to move.
+
+// ---- Token rendering ----
+
+function moveTokenToCell(tokenEl, cellNumber) {
+  const targetCell = cellMap[cellNumber];
+  if (!targetCell) return console.error('Cell not found:', cellNumber);
+
+  const startRect = tokenEl.getBoundingClientRect();
+  const targetRect = targetCell.getBoundingClientRect();
+  const deltaX = targetRect.left - startRect.left;
+  const deltaY = targetRect.top - startRect.top;
+
+  tokenEl.style.transition = 'transform 0.4s ease';
+  tokenEl.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
+
+  setTimeout(() => {
+    tokenEl.style.transition = 'none';
+    tokenEl.style.transform = 'none';
+
+    if (tokenEl.parentElement) tokenEl.parentElement.removeChild(tokenEl);
+    targetCell.appendChild(tokenEl);
+    restackCell(targetCell);
+  }, 400);
+}
+
+function restackCell(cellEl) {
+  const tokensInCell = cellEl.querySelectorAll('.token');
+  tokensInCell.forEach((t, i) => {
+    t.classList.remove('stack-1', 'stack-2', 'stack-3', 'stack-4');
+    t.classList.add(`stack-${i + 1}`);
+  });
+}
+
+function sendTokenToBase(tokenId) {
+  const tokenEl = tokenEls[tokenId];
+  const color = tokenId.split('-')[0];
+  const fromCell = tokenEl.parentElement;
+
+  tokenEl.classList.remove('active-token', 'stack-1', 'stack-2', 'stack-3', 'stack-4');
+  tokenEl.style.background = '';
+  if (fromCell) fromCell.removeChild(tokenEl);
+  baseContainers[color].appendChild(tokenEl);
+  if (fromCell && fromCell.classList.contains('cell')) restackCell(fromCell);
+}
+
+function retireTokenVisual(tokenId) {
+  const tokenEl = tokenEls[tokenId];
+  tokenEl.classList.remove('active-token');
+  tokenEl.classList.add('retired');
+}
+
+function showWinnerOverlay(color) {
+  const overlay = document.createElement('div');
+  overlay.className = 'winner-overlay';
+  overlay.innerHTML = `<h1 style="color:${PLAYERS_META[color].color}; text-align:center;">${color.toUpperCase()} Wins the Game!</h1>`;
+  document.body.appendChild(overlay);
+}
+
+// Walk a list of cells one hop at a time, then call onDone.
+function walkCells(tokenEl, cells, color, onDone) {
+  if (cells.length === 0) {
+    onDone();
+    return;
+  }
+  let step = 0;
+  const interval = setInterval(() => {
+    moveTokenToCell(tokenEl, cells[step]);
+    tokenEl.style.background = PLAYERS_META[color].color;
+    step++;
+    if (step >= cells.length) {
+      clearInterval(interval);
+      setTimeout(onDone, 450);
+    }
+  }, 450);
+}
+
+// Blocked move: walk up to the wall, then walk back home. Painful
+// to watch on purpose.
+function animateBounce(move, tokenEl, color, onDone) {
+  const outCells = [];
+  for (const cell of move.path) {
+    if (cell === move.blockedAt) break;
+    outCells.push(cell);
+  }
+
+  if (outCells.length === 0) {
+    // Wall is on the very first step (or a blocked base entry):
+    // nowhere to walk, just narrate the bounce.
+    onDone();
+    return;
+  }
+
+  const backCells = outCells.slice(0, -1).reverse();
+  backCells.push(move.from);
+
+  walkCells(tokenEl, outCells, color, () => {
+    walkCells(tokenEl, backCells, color, onDone);
+  });
+}
+
+// ---- Playing a move ----
+// State changes FIRST (applyMove), then the DOM catches up.
+function playMove(move) {
+  gameState.isMoving = true;
+  const color = gameState.currentPlayer;
+  const result = applyMove(gameState, move);
+  const tokenEl = tokenEls[move.tokenId];
+
+  const finish = () => {
+    if (move.blocked) {
+      setCommentary(`❌ ${color} hit a blockade wall at cell ${move.blockedAt}! Bounced back — value wasted.`);
+    }
+
+    for (const kick of move.kicks) {
+      sendTokenToBase(kick.tokenId);
+      setCommentary(kickCommentary(color, kick));
+    }
+
+    if (result.queueBurned) {
+      setCommentary(`🛑 Lone striker rule! ${color}'s only token kicked — the rest of the combo burns.`);
+    }
+
+    if (move.kind === 'retire') {
+      retireTokenVisual(move.tokenId);
+      setCommentary(`${color} has retired ${countRetired(gameState, color)} token(s) 🎉`);
+    }
+
+    if (gameState.gameOver) {
+      setCommentary(`${gameState.winner.toUpperCase()} wins the game!`);
+      showWinnerOverlay(gameState.winner);
+      gameState.isMoving = false;
+      return;
+    }
+
+    // This value is spent — move to the next one or end the turn.
+    gameState.rolledQueue.shift();
+    gameState.isMoving = false;
+    processQueue();
+  };
+
+  if (move.kind === 'retire') {
+    finish();
+    return;
+  }
+
+  if (move.kind === 'enter') {
+    tokenEl.classList.add('active-token');
+  }
+
+  if (move.blocked) {
+    animateBounce(move, tokenEl, color, finish);
+    return;
+  }
+
+  // Normal walk; a side-kick swap adds one extra hop across tracks.
+  const cells = move.swapTo !== null && move.swapTo !== undefined
+    ? [...move.path, move.swapTo]
+    : move.path;
+  walkCells(tokenEl, cells, color, finish);
+}
+
+// ---- Spending the banked queue ----
+
+function endTurn() {
+  advanceTurn(gameState);
+  updateTurnDisplay();
+  displayCurrentPlayer.textContent = `${gameState.currentPlayer}'s turn`;
+  setStatus('Roll the dice!');
+}
+
+function processQueue() {
+  if (gameState.rolledQueue.length === 0) {
+    endTurn();
+    return;
+  }
+
+  const value = gameState.rolledQueue[0];
+  const remaining = gameState.rolledQueue.slice(1);
+  displayCurrentPlayer.textContent =
+    `${gameState.currentPlayer} playing ${value}` +
+    (remaining.length ? ` (still banked: ${remaining.join(', ')})` : '');
+
+  const moves = getLegalMoves(gameState, value);
+
+  if (moves.length === 0) {
+    setCommentary(`No legal move for the ${value} — value burned.`);
+    gameState.rolledQueue.shift();
+    processQueue();
+    return;
+  }
+
+  if (moves.length === 1) {
+    playMove(moves[0]);
+    return;
+  }
+
+  highlightChoices(moves);
+}
+
+// ---- Dice ----
+
+function animateDice() {
+  dice.classList.remove('roll-animate');
+  void dice.offsetWidth;
+  dice.classList.add('roll-animate');
+  setTimeout(() => dice.classList.remove('roll-animate'), 500);
+}
+
+// True while the player is still rolling to grow the combo.
+let banking = false;
 
 dice.addEventListener('click', function () {
+  if (gameState.gameOver || gameState.isMoving) return;
+  if (gameState.awaitingChoice) {
+    setStatus(`${gameState.currentPlayer}, pick a glowing token first!`);
+    return;
+  }
+  // Dice only works at the start of a turn or mid-banking —
+  // never while the queue is being spent.
+  if (gameState.rolledQueue.length > 0 && !banking) return;
+
+  bankRolls();
+});
+
+// Banking phase: keep rolling while 6s land, then spend the queue.
+function bankRolls() {
   const result = Math.trunc(Math.random() * 6) + 1;
+  gameState.rolledQueue.push(result);
 
   animateDice();
   dieDisplay.classList.remove(...diceFaces);
   dieDisplay.classList.add(diceFaces[result - 1]);
 
-  handleDiceRoll(result);
+  const color = gameState.currentPlayer;
+  displayCurrentPlayer.textContent = `${color} rolled: ${queueLabel()}`;
 
-  //google tag analytics
+  // google tag analytics
   gtag('event', 'dice_clicked', {
     event_category: 'gameplay',
-    event_label: 'user clicked dice'
+    event_label: 'user clicked dice',
   });
-});
 
+  if (result === 6) {
+    banking = true;
+    setStatus(`A 6! Banked — roll again to grow the combo 🔥`);
+    return;
+  }
+
+  banking = false;
+  processQueue();
+}
+
+// ---- Initial render ----
+displayCurrentPlayer.textContent = `${gameState.currentPlayer} is starting the game`;
+setStatus('Roll the dice!');
+updateTurnDisplay();

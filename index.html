@@ -9,6 +9,11 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
     integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA=="
     crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <!-- Fonts: Lilita One (display) + Karla (body) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Karla:wght@400;500;700&family=Lilita+One&display=swap"
+    rel="stylesheet">
   <!-- Google tag (gtag.js) -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-Q572TBQBB7"></script>
   <script>
@@ -25,19 +30,20 @@
 <body>
   <header>
     <section class="intro">
-      <h1>Ghana Ludu game</h1>
-      <p class="instructions">Click the dice to roll and start playing. Player Yellow starts the game </p>
+      <h1>Ghana Ludu</h1>
+      <p class="instructions">Click the dice to roll. Yellow starts the game.</p>
     </section>
   </header>
   <main>
     <section class="container ">
       <div class="rules-first rules mobile-none">
-        <h2 class="rules-title"> About Ghana Ludu</h2>
-          <p>
-            Ludu is one of Ghana's most loved board games. A mix of luck, strategy and pure vibes.
-            Whether you're sending your opponent “home” or praying for a 6 to start or to kick your opponent, the chaos never ends.
-            This version brings the same energy to your browser. I built this with HTML, CSS, and JavaScript.
-          </p>
+        <h2 class="rules-title">About Ghana Ludu</h2>
+        <p>
+          Ludu is one of Ghana's most loved board games. A mix of luck, strategy and pure vibes.
+          Whether you're sending your opponent “home” or praying for a 6 to start or to kick your opponent, the chaos
+          never ends.
+          This version brings the same energy to your browser. I built this with HTML, CSS, and JavaScript.
+        </p>
         <section id="todo">
           <h2 class="text-lg font-bold">Upcoming Features</h2>
           <p>I'll be adding more of the Ludu wickedness soon, including:</p>
@@ -55,22 +61,22 @@
               Home kick: Land on an opponent on their way home to kick them out
             </li>
             <li>
-              Implement stacking rule (2+ tokens block path)            
+              Implement stacking rule (2+ tokens block path)
             </li>
             <li>
-              Choose which token to move after rolling            
+              Choose which token to move after rolling
             </li>
             <li>
-              Add animation when sending a token home            
+              Add animation when sending a token home
             </li>
             <li>
-              Allow choosing number of players            
+              Allow choosing number of players
             </li>
             <li>
               Add sound effects for dice rolls and kicks
             </li>
             <li>
-              Add an AI opponent (play with computer)            
+              Add an AI opponent (play with computer)
             </li>
             <li>
               Online multiplayer (play with friends)
@@ -78,7 +84,6 @@
           </ul>
           <!-- <p>Have an idea? Share here: <a target="_blank" href="https://docs.google.com/forms/d/e/1FAIpQLSc44dGoKDan8G1zBAak61ZMLTy4tSn9v5gJ_r7TWgOoAxIW7g/viewform?usp=publish-editor">Fill out the form</a></p> -->
         </section>
-      </div>
       </div>
       <div class="yellow-wood">
         <div class="white-border">
@@ -223,30 +228,30 @@
             <!-- Center -->
             <div class="center">
               <img src="./images/dove.png" alt="">
-              <div class="dice" id="dice">
-                <i class="fa-solid fa-dice-one" ></i>
+              <div class="dice" id="dice" aria-label="Roll the dice">
+                <i class="fa-solid fa-dice-one"></i>
               </div>
             </div>
           </div>
         </div>
       </div>
       <div class="rules rules-game">
-        <h2 class="rules-title">What is happening: </h2>
+        <h2 class="rules-title">Live commentary</h2>
         <div class="comment-row display-flex">
-          
+
         </div>
         <div class="keeping-tabs-on-what-is-happening">
           <div class="playing-status">
             <div class="player-playing">
-              <p class="current-player-title">Status: </p>
+              <p class="current-player-title">Play-by-play</p>
               <p class="display-current-player">Player</p>
             </div>
-            <p class="player-status">No movable tokens for player. Need a 6 to start</p>
+            <p class="player-status">Roll the dice to start</p>
           </div>
-          
+
           <div class="player-activity-container">
             <div class="next-player-playing">
-              <p class="next-player-title">Your Turn:</p>
+              <p class="next-player-title">Turn</p>
               <p class="player-turn"></p>
             </div>
             <div class="player-news">
@@ -260,10 +265,8 @@
   </main>
   <footer>
     <p>I designed this game to practice the Document Object Model and Js</p>
-
-    <p>If you have any questions,  <a target="_blank"
-      href="https://docs.google.com/forms/d/e/1FAIpQLSc44dGoKDan8G1zBAak61ZMLTy4tSn9v5gJ_r7TWgOoAxIW7g/viewform?usp=publish-editor">talk to me here</a></p>
   </footer>
+  <script src="./game.js"></script>
   <script src="./script.js"></script>
 
 </body>

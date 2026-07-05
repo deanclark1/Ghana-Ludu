@@ -1,27 +1,86 @@
+/* =========================================================
+   Ghana Ludu — visual design (light)
+   Direction: a painted wooden board in daylight.
+   Warm sand page, white cards, the board is the hero.
+
+   Palette
+   --page        warm sand (page background)
+   --card        white card surface
+   --ink         near-black text & board lines
+   --muted       secondary text
+   --wood        the board frame
+   --gold/red/green  Ghana flag accent, used sparingly
+
+   Type
+   Lilita One — display: title, headings, commentary, winner
+   Karla      — body and UI text
+   ========================================================= */
+
+:root {
+  --page: #F6EEDD;
+  --card: #FFFFFF;
+  --card-edge: #E7DCC4;
+  --ink: #1C1F26;
+  --muted: #7C6F58;
+  --wood: #E0B75B;
+  --gold: #FCD116;
+  --gold-deep: #B8860B;
+  --flag-red: #CE1126;
+  --flag-green: #006B3F;
+}
+
 * {
   box-sizing: border-box;
 }
 
 body {
-  background: #fafafa;
-  font-family: sans-serif;
+  background: var(--page);
+  color: var(--ink);
+  font-family: 'Karla', sans-serif;
   margin: 0;
   padding: 0;
 }
+
+/* ---------- Header ---------- */
 
 header {
   display: flex;
   justify-content: center;
   align-items: center;
   text-align: center;
+  padding-top: 1.25rem;
 }
+
+.intro h1 {
+  font-family: 'Lilita One', cursive;
+  font-size: clamp(2.2rem, 6vw, 3.4rem);
+  letter-spacing: 0.02em;
+  color: var(--ink);
+  text-shadow: 3px 3px 0 rgba(224, 183, 91, 0.55);
+  margin: 0 0 0.4rem;
+}
+
+/* Ghana flag stripe — the one recurring accent */
+.intro h1::after {
+  content: "";
+  display: block;
+  width: 130px;
+  height: 6px;
+  margin: 0.55rem auto 0;
+  border-radius: 3px;
+  background: linear-gradient(
+    90deg,
+    var(--flag-red) 0 33.3%,
+    var(--gold) 33.3% 66.6%,
+    var(--flag-green) 66.6% 100%
+  );
+}
+
 .instructions {
   font-size: 1rem;
-  color: #ff1900;
+  color: var(--muted);
   font-weight: 500;
   margin-top: 0.5rem;
-}
-.instructions {
   opacity: 0;
   animation: fadeIn 1s ease forwards;
 }
@@ -31,53 +90,57 @@ header {
     opacity: 1;
   }
 }
+
+/* ---------- Layout ---------- */
+
 .container {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 1rem;
-  padding: 0.95rem;
+  gap: 1.25rem;
+  padding: 1rem 0.95rem 2rem;
 }
 
-.white-border {
-  background-color: white;
-  padding: 0.35rem;
-}
-
-.yellow-wood {
-  background-color: #E0B75B;
-  padding: 1rem;
-}
-
-.ludo-board {
-  display: grid;
-  grid-template-columns: 1fr 0.5fr 1fr;
-  grid-template-rows: 1fr 0.5fr 1fr;
-  width: 90vmin; 
-  max-width: 90vw;
-  aspect-ratio: 1 / 1;
-  margin: 0 auto;
-  box-sizing: border-box;
-}
+/* ---------- Side panels (about + commentary) ---------- */
 
 .rules {
   width: 100%;
   text-align: center;
+  background: var(--card);
+  border: 1px solid var(--card-edge);
+  border-radius: 14px;
+  padding: 1.1rem 1.25rem 1.35rem;
+  box-shadow: 0 4px 14px rgba(96, 74, 34, 0.08);
+}
+
+.rules p {
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.rules a {
+  color: var(--flag-green);
 }
 
 .rules-first {
   order: 3;
 }
 
-.rules-game{
+.rules-game {
   order: -1;
 }
 
 .rules-title {
-  margin: 0;
+  font-family: 'Lilita One', cursive;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  color: var(--ink);
+  margin: 0 0 0.35rem;
   text-align: center;
 }
+
+/* ---------- The commentary card ---------- */
 
 .keeping-tabs-on-what-is-happening {
   display: flex;
@@ -85,60 +148,151 @@ header {
   align-items: flex-start;
   flex-direction: row;
   gap: 1rem;
-  width: 80%;
+  width: 100%;
   margin: 0 auto;
   min-height: 100px;
 }
 
+.playing-status,
+.player-activity-container {
+  flex: 1 1 45%;
+  min-width: 230px;
+  padding: 0.75rem 1rem 0.9rem;
+  box-sizing: border-box;
+  background: var(--page);
+  border-radius: 10px;
+  border-top: 4px solid var(--gold);
+}
+
 .player-playing,
-.next-player-playing, 
+.next-player-playing,
 .player-news,
 .playing-status {
   display: flex;
   justify-content: center;
   gap: 0.48rem;
 }
+
 .playing-status {
   flex-direction: column;
   align-items: center;
   justify-content: flex-start;
   gap: 0;
-
 }
 
+/* Small caps labels — quiet, so the content can be loud */
 .current-player-title,
 .next-player-title {
-  font-weight: bold;
+  font-weight: 700;
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0.1rem 0;
 }
 
-.playing-status,
-.player-activity-container {
-  flex: 1 1 45%; 
-  min-width: 250px; 
-  padding: 0.5rem 1rem;
+.display-current-player,
+.player-status {
+  color: var(--ink);
+  margin: 0.2rem 0;
+}
+
+.player-turn {
+  font-family: 'Lilita One', cursive;
+  font-size: 1.15rem;
+  text-transform: capitalize;
+  color: var(--gold-deep);
+  margin: 0;
+}
+
+/* The loudest text on the page — kick lines deserve it */
+.commentary {
+  font-family: 'Lilita One', cursive;
+  font-size: 1.1rem;
+  line-height: 1.4;
+  letter-spacing: 0.01em;
+  color: var(--ink);
+  margin: 0.3rem 0 0;
+}
+
+/* ---------- Forward/backward choice buttons ---------- */
+
+.comment-row {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.6rem;
+}
+
+.move-choice {
+  font-family: 'Karla', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 700;
+  padding: 0.45rem 0.95rem;
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--ink);
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.move-choice:hover,
+.move-choice:focus-visible {
+  background: var(--gold);
+  transform: scale(1.05);
+  outline: none;
+}
+
+/* ---------- The board ---------- */
+
+.white-border {
+  background-color: white;
+  padding: 0.35rem;
+}
+
+.yellow-wood {
+  background-color: var(--wood);
+  padding: 1rem;
+  box-shadow:
+    0 14px 34px rgba(96, 74, 34, 0.28),
+    0 3px 9px rgba(96, 74, 34, 0.18);
+}
+
+.ludo-board {
+  display: grid;
+  grid-template-columns: 1fr 0.5fr 1fr;
+  grid-template-rows: 1fr 0.5fr 1fr;
+  width: 90vmin;
+  max-width: 90vw;
+  aspect-ratio: 1 / 1;
+  margin: 0 auto;
   box-sizing: border-box;
 }
+
 .home {
   padding: .3rem;
-  border: 1px solid #1C1F26;
+  border: 1px solid var(--ink);
   transition: background-color 0.4s ease, transform 0.3s ease;
 }
 
 .home.player--active {
-  filter: brightness(1.2) ;
+  filter: brightness(1.2);
   box-shadow: 0 0 15px rgba(255, 255, 255, 0.4);
 }
-.yellow-home.player--active { 
-  box-shadow: 0 0 25px rgba(241, 196, 15, 0.8); 
+
+.yellow-home.player--active {
+  box-shadow: 0 0 25px rgba(241, 196, 15, 0.8);
 }
-.blue-home.player--active   { 
-  box-shadow: 0 0 25px rgba(52, 152, 219, 0.9); 
+.blue-home.player--active {
+  box-shadow: 0 0 25px rgba(52, 152, 219, 0.9);
 }
-.red-home.player--active    { 
-  box-shadow: 0 0 25px rgba(231, 76, 60, 0.9); 
+.red-home.player--active {
+  box-shadow: 0 0 25px rgba(231, 76, 60, 0.9);
 }
-.green-home.player--active  { 
-  box-shadow: 0 0 25px rgba(46, 204, 113, 0.9); 
+.green-home.player--active {
+  box-shadow: 0 0 25px rgba(46, 204, 113, 0.9);
 }
 
 .green-home {
@@ -161,31 +315,35 @@ header {
   background-color: #3498db;
 }
 
+/* Star portraits: shared rule owns position/repeat/size so every
+   photo fills its frame identically; each home only swaps the
+   image (longhand background-image never resets background-size) */
 .green-home .img,
 .red-home .img,
 .yellow-home .img,
 .blue-home .img {
-  
+  background-position: center;
+  background-repeat: no-repeat;
   background-size: cover;
   height: 32vmin;
   display: flex;
 }
 
 .green-home .img {
-  background: url('./images/van-vicker.jpg') center center no-repeat;
+  background-image: url('./images/van-vicker.jpg');
   justify-content: flex-start;
   align-items: flex-start;
 }
 .red-home .img {
-  background: url('./images/nadia.jpg') center center no-repeat;
+  background-image: url('./images/nadia.jpg');
   justify-content: flex-end;
 }
 .yellow-home .img {
-  background: url('./images/j.jpg') center center no-repeat;
+  background-image: url('./images/j.jpg');
   align-items: flex-end;
 }
 .blue-home .img {
-  background: url('./images/MAJID.jpg') center center no-repeat;
+  background-image: url('./images/MAJID.jpg');
   justify-content: flex-end;
   align-items: flex-end;
 }
@@ -194,46 +352,52 @@ header {
   width: 100%;
 }
 
-.home .img .image-caption h2{
+.home .img .image-caption h2 {
+  font-family: 'Lilita One', cursive;
+  font-weight: 400;
   font-size: 8px;
+  letter-spacing: 0.04em;
   padding-left: 5px;
-  color: #1C1F26;
+  color: var(--ink);
 }
 
 .blue-caption {
   color: white !important;
 }
 
-/* player path */
+/* Player paths & explicit grid alignment placement */
 .path {
   display: grid;
-  background: #1C1F26;
+  background: var(--ink);
   gap: 1px;
 }
 
 .red-path {
+  grid-area: 1 / 2 / 2 / 3;
   grid-template-columns: repeat(3, 1fr);
   grid-template-rows: repeat(6, 1fr);
-  border-top: 1px solid #1C1F26;
+  border-top: 1px solid var(--ink);
 }
 
 .green-path {
+  grid-area: 2 / 1 / 3 / 2;
   grid-template-columns: repeat(6, 1fr);
   grid-template-rows: repeat(3, 1fr);
-  border-left: 1px solid #1C1F26;
+  border-left: 1px solid var(--ink);
 }
 
 .yellow-path {
   grid-area: 3 / 2 / 4 / 3;
   grid-template-columns: repeat(3, 1fr);
   grid-template-rows: repeat(6, 1fr);
-  border-bottom: 1px solid #1C1F26;
+  border-bottom: 1px solid var(--ink);
 }
 
 .blue-path {
+  grid-area: 2 / 3 / 3 / 4;
   grid-template-columns: repeat(6, 1fr);
   grid-template-rows: repeat(3, 1fr);
-  border-right: 1px solid #1C1F26;
+  border-right: 1px solid var(--ink);
 }
 
 .cell {
@@ -245,9 +409,8 @@ header {
   align-items: center;
 }
 
-
 .center {
-  background: #1C1F26;
+  background: var(--ink);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -259,7 +422,7 @@ header {
   width: 100%;
 }
 
-/* Home path */
+/* Home safe lanes */
 .green-path .cell:nth-child(2),
 .green-path .cell:nth-child(n+8):nth-child(-n+12) {
   background: #2ecc71;
@@ -288,7 +451,8 @@ header {
   background: #e74c3c;
 }
 
-/* Tokens */
+/* ---------- Tokens ---------- */
+
 .tokens {
   display: grid;
   grid-template-columns: repeat(2, 5vmin);
@@ -302,6 +466,9 @@ header {
   width: 4vmin;
   height: 4vmin;
   border-radius: 50%;
+  transform-origin: center;
+  backface-visibility: hidden;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .token.selectable {
@@ -314,21 +481,29 @@ header {
 
 .token.selectable:hover {
   transform: scale(1.15);
-  box-shadow: 0 0 15px yellow;
+  box-shadow: 0 0 15px gold;
 }
 
+.token.selectable-kick {
+  outline: 3px solid #ff1900;
+  box-shadow: 0 0 12px #ff1900;
+}
 
-.red-tokens .token { 
-  background: #e74c3c; 
+.token.selectable-kick:hover {
+  box-shadow: 0 0 18px #ff1900;
 }
-.green-tokens .token { 
-  background: #2ecc71; 
+
+.red-tokens .token {
+  background: #e74c3c;
 }
-.yellow-tokens .token { 
-  background: #e7c84d; 
+.green-tokens .token {
+  background: #2ecc71;
 }
-.blue-tokens .token { 
-  background: #3498db; 
+.yellow-tokens .token {
+  background: #e7c84d;
+}
+.blue-tokens .token {
+  background: #3498db;
 }
 
 .token.retired {
@@ -338,32 +513,21 @@ header {
   pointer-events: none;
   filter: grayscale(100%);
   color: transparent;
+  box-shadow: none;
 }
 
-.token.stack-1 { 
-  position: absolute; 
-  top: 0; 
-  left: 0; 
-  z-index: 1; 
+/* Precise, shifted cell overlapping configuration */
+.cell .token {
+  position: absolute;
+  width: 3.5vmin !important;
+  height: 3.5vmin !important;
+  transition: transform 0.4s ease, top 0.2s, left 0.2s;
 }
-.token.stack-2 { 
-  position: absolute; 
-  top: 1px; 
-  left: 3px; 
-  z-index: 2; 
-}
-.token.stack-3 { 
-  position: absolute; 
-  top: 2px; 
-  left: 5.5px; 
-  z-index: 3; 
-}
-.token.stack-4 { 
-  position: absolute; 
-  top: 3px; 
-  left: 9px; 
-  z-index: 4; 
-}
+
+.token.stack-1 { top: 5%;  left: 5%;  z-index: 1; }
+.token.stack-2 { top: 15%; left: 15%; z-index: 2; }
+.token.stack-3 { top: 25%; left: 25%; z-index: 3; }
+.token.stack-4 { top: 35%; left: 35%; z-index: 4; }
 
 .active-token {
   border: 1px solid white;
@@ -373,17 +537,24 @@ header {
   background: #e7c84d;
 }
 
-/* Dice */
+/* ---------- Dice ---------- */
+
 .dice {
   position: absolute;
-  background-color: #1C1F26;
+  background-color: var(--ink);
   border-radius: 100%;
-  cursor: grabbing;
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+
+.dice:hover {
+  transform: scale(1.08);
 }
 
 .dice i {
   font-size: clamp(3rem, 7vmin, 3.5rem);
   color: white;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.5));
 }
 
 .die {
@@ -404,19 +575,20 @@ header {
 }
 
 @keyframes roll {
-  0% { 
-    transform: rotate(0deg); 
+  0% {
+    transform: rotate(0deg);
   }
-  100% { 
-    transform: rotate(360deg); 
+  100% {
+    transform: rotate(360deg);
   }
 }
 
-/* Winner overlay */
+/* ---------- Winner overlay ---------- */
+
 .winner-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.8);
+  background: rgba(0, 0, 0, 0.85);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -424,26 +596,71 @@ header {
   font-size: 3rem;
   z-index: 9999;
 }
-/* Todo Styles */
+
+.winner-overlay h1 {
+  font-family: 'Lilita One', cursive;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  text-shadow: 4px 4px 0 rgba(0, 0, 0, 0.6);
+  animation: winnerPop 0.5s cubic-bezier(0.2, 1.4, 0.4, 1) both;
+}
+
+@keyframes winnerPop {
+  from {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* ---------- Todo list ---------- */
 
 #todo-list {
   padding-inline-start: 14px;
+  text-align: left;
+  color: var(--muted);
 }
 #todo-list li {
   cursor: pointer;
   padding: 4px 0;
+}
+#todo-list li::marker {
+  color: var(--gold-deep);
 }
 .done {
   text-decoration: line-through;
   opacity: 0.6;
 }
 
+/* ---------- Footer ---------- */
+
 footer {
   text-align: center;
+  color: var(--muted);
+  font-size: 0.9rem;
+  padding: 0.5rem 1rem 1.5rem;
 }
-/* small screen and landscape */
+
+footer a {
+  color: var(--flag-green);
+}
+
+/* ---------- Motion preferences ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .roll-animate {
+    animation: none;
+  }
+  .winner-overlay h1 {
+    animation: none;
+  }
+}
+
+/* ---------- Small screen and landscape ---------- */
 @media screen and (max-height: 600px) and (orientation: landscape) {
-  
   .ludo-board {
     width: 172vmin;
   }
@@ -452,17 +669,17 @@ footer {
   }
 }
 
-/* Tablet and small desktop */
+/* ---------- Tablet and small desktop ---------- */
 @media (min-width: 768px) {
-  
   .white-border {
     padding: 1rem;
   }
   .rules {
-    
     text-align: left;
   }
-
+  .rules-title {
+    text-align: left;
+  }
   .mobile-none {
     display: block;
   }
@@ -472,21 +689,17 @@ footer {
   .yellow-wood {
     padding: 2rem;
   }
-
   .ludo-board {
-    max-width: 700px;
+    max-width: 760px;
   }
-
   .tokens {
     grid-template-columns: repeat(2, 7vmin);
     grid-template-rows: repeat(2, 7vmin);
   }
-
   .token {
     width: 5vmin;
     height: 5vmin;
   }
-
   .green-home .img,
   .red-home .img,
   .yellow-home .img,
@@ -494,49 +707,45 @@ footer {
     margin: .5rem;
     padding: .5rem;
   }
-
-  .home .img .image-caption h2{
+  .home .img .image-caption h2 {
     font-size: 10px;
   }
   .dice {
     top: 1rem;
     background-color: transparent;
-
   }
-
   .center img {
     width: 80%;
   }
 }
 
-@media (min-width: 992px) {
-  
-}
-
-/* Large desktops */
+/* ---------- Large desktops ---------- */
 @media (min-width: 1200px) {
   .container {
     align-items: flex-start;
     flex-direction: row;
-    gap: 3rem;
-
+    gap: 2.5rem;
   }
-
   .ludo-board {
     max-width: 900px;
   }
-
+  .rules {
+    flex: 1 1 0;
+    max-width: 340px;
+    position: sticky;
+    top: 1rem;
+  }
+  .yellow-wood {
+    flex: 0 1 auto;
+  }
   .rules-first {
     order: -1;
   }
-
-  .rules-game{
+  .rules-game {
     order: 3;
   }
-
   .tokens {
     grid-template-columns: repeat(2, 6vmin);
     grid-template-rows: repeat(2, 6vmin);
   }
- 
 }
