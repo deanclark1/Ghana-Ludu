@@ -1,33 +1,34 @@
 'use strict';
 
 /* =========================================================
-   Ghana Ludu — GAME LOGIC (game.js) — STEP 4
-   No DOM code in this file. Everything reads/writes gameState.
+   Ghana Ludu — GAME LOGIC (game.js)
+   Implements RULES.md v2 (turn structure + gotcha corrected).
+   No DOM code in this file. Design compass: every rule exists
+   to prevent tokens from retiring faster.
 
-   The street rules, as played:
-   - ROLL BANKING: every 6 banks and you roll again; the combo
-     queue is spent value by value once a non-6 lands
-   - BLOCKADE: 2+ same-color tokens are a wall. Any opponent
-     move that would pass OVER it or land ON it bounces back
-     to where it started counting from — value wasted
-   - SIDE KICK SWAP: kick an opponent on the parallel cell and
-     your striker jumps tracks onto their spot
-   - SAFE COLUMNS ARE UNTOUCHABLE: no kicks in or out of them
-   - LONE STRIKER RULE: exactly one active token + a combo
-     queue — the moment it kicks, the rest of the queue burns
-   - PAY ATTENTION: the engine offers ALL moves, including
-     traps. Nothing is forced, nothing is flagged. Spotting
-     the kick (and the wall) is the player's job.
+   Turn structure (corrected):
+   - A turn starts with one roll credit. Rolling a 6 grants one
+     more. Rolling and counting interleave freely — the player
+     may kick with a 6 immediately and take the bonus roll after.
+
+   The Lone Striker gotcha (corrected):
+   - A lone active token that kicks and then MOVES AGAIN in the
+     same turn has its kick UNDONE — the victim returns to the
+     cell it was kicked from. The game does not warn you.
    ========================================================= */
 
 // ---- House rules ----
 const CONFIG = {
   backwardMoves: true,        // Ghana-style backward movement
   backwardOnlyToKick: true,   // backward is for hunting only
-  mustKick: false,            // OFF: spotting kicks is the skill of the game
-  sideKicks: true,            // parallel-cell kicks
-  sideKickSwap: true,         // striker takes the victim's cell
-  blockades: true,            // 2+ same-color tokens block opponents
+  mustKick: false,            // spotting kicks is the player's skill
+  sideKicks: true,            // slide kicks between parallel cells
+  sideKickSwap: true,         // striker slides onto the victim's cell
+  homeKicks: true,            // exact-count entry into enemy home lines
+  blockades: true,            // 2+ same-colour tokens block opponents
+  blockadeBypass: true,       // equal-or-greater counter-wall grants passage
+  loneStrikerGotcha: true,    // lone token: kick then move again = kick undone
+  optionalKicks: true,        // landing on/beside an opponent offers kick OR no-kick
 };
 
 // ---- Static board facts ----
@@ -41,13 +42,7 @@ const PLAYERS_META = {
 const TURN_ORDER = ['yellow', 'blue', 'red', 'green'];
 const MAX_CELL = 72;
 
-// ---- Parallel cells (side-kick geometry) ----
-// Each row of a board arm is [outer, MIDDLE, outer], read straight
-// from the board grid in index.html. Side kicks fire between the
-// two OUTER cells — but only with a clear line of sight: any token
-// standing on the middle cell shields the kick.
-// Safe columns themselves stay untouchable (kicks never target the
-// middle lane).
+// ---- Parallel cells (slide-kick geometry) ----
 const PARALLEL_GROUPS = [
   // Yellow arm (bottom)
   [5, 71, 60], [4, 70, 61], [3, 69, 62], [2, 68, 63], [1, 67, 64], [72, 66, 65],
@@ -59,7 +54,6 @@ const PARALLEL_GROUPS = [
   [42, 53, 59], [43, 52, 58], [44, 51, 57], [45, 50, 56], [46, 49, 55], [47, 48, 54],
 ];
 
-// outer cell -> { cell: the opposite outer cell, middle: the shield cell }
 const PARALLEL_OF = {};
 for (const [a, middle, b] of PARALLEL_GROUPS) {
   PARALLEL_OF[a] = { cell: b, middle };
@@ -80,7 +74,9 @@ function createGameState() {
   }
   return {
     currentPlayer: 'yellow',
-    rolledQueue: [],        // banked combo values, spent in order
+    rolledQueue: [],   // banked values, spendable in any order
+    rollCredits: 1,    // rolls available; each 6 grants one more
+    turnKick: null,    // lone-striker kick this turn: { active, tokenId, victims }
     isMoving: false,
     awaitingChoice: false,
     gameOver: false,
@@ -116,36 +112,46 @@ function countRetired(state, color) {
   return state.players[color].tokens.filter(t => t.retired).length;
 }
 
-// A cell is a blockade against `movingColor` if any OTHER single
-// color has 2+ tokens standing on it.
-function isBlockadeAgainst(state, cellNumber, movingColor) {
-  if (!CONFIG.blockades) return false;
+// Which foreign home line (if any) is this cell part of?
+function homeLineOwner(cellNumber, exceptColor) {
+  for (const [name, meta] of Object.entries(PLAYERS_META)) {
+    if (name !== exceptColor && meta.safeCells.includes(cellNumber)) return name;
+  }
+  return null;
+}
+
+// Size of the strongest enemy wall on a cell (0 = no wall).
+function blockadeSizeAgainst(state, cellNumber, movingColor) {
+  if (!CONFIG.blockades) return 0;
   const counts = {};
   for (const t of tokensOnCell(state, cellNumber)) {
     counts[t.color] = (counts[t.color] || 0) + 1;
   }
-  return Object.entries(counts).some(
-    ([color, count]) => color !== movingColor && count >= 2
-  );
+  let size = 0;
+  for (const [color, count] of Object.entries(counts)) {
+    if (color !== movingColor && count >= 2) size = Math.max(size, count);
+  }
+  return size;
 }
 
-// Opponents you kick by landing on cellNumber.
-// Stacks are untouchable: a victim protected by a 2+ stack of its
-// own color is skipped. Side-kick victims come with the swap cell.
+// Opponents kicked by landing on cellNumber.
 function kicksAt(state, cellNumber, movingColor) {
   const kicks = [];
+  const lineOwner = homeLineOwner(cellNumber, movingColor);
 
-  for (const victim of tokensOnCell(state, cellNumber)) {
-    if (victim.color === movingColor) continue;
-    kicks.push({ ...victim, via: 'direct' });
+  const occupants = tokensOnCell(state, cellNumber);
+  const wall = blockadeSizeAgainst(state, cellNumber, movingColor) > 0;
+  if (!wall) {
+    for (const victim of occupants) {
+      if (victim.color === movingColor) continue;
+      kicks.push({ ...victim, via: lineOwner ? 'home' : 'direct' });
+    }
   }
 
   const link = PARALLEL_OF[cellNumber];
   if (CONFIG.sideKicks && link !== undefined) {
-    // Line of sight: ANY token on the middle cell (any color,
-    // including your own) shields the parallel kick.
     const shielded = tokensOnCell(state, link.middle).length > 0;
-    const protectedStack = isBlockadeAgainst(state, link.cell, movingColor);
+    const protectedStack = blockadeSizeAgainst(state, link.cell, movingColor) > 0;
     if (!shielded && !protectedStack) {
       for (const victim of tokensOnCell(state, link.cell)) {
         if (victim.color === movingColor) continue;
@@ -159,13 +165,7 @@ function kicksAt(state, cellNumber, movingColor) {
 
 // ---- Movement math ----
 
-// Forward: skips OTHER players' safe columns.
-// Backward: skips ALL safe columns (forward-entry only).
-function computePath(startCell, steps, direction, playerName) {
-  const skipCells = Object.entries(PLAYERS_META)
-    .filter(([name]) => direction === 'backward' || name !== playerName)
-    .flatMap(([, meta]) => meta.safeCells);
-
+function walkCellsPath(startCell, steps, direction, skipCells) {
   const step = direction === 'forward' ? 1 : -1;
   const path = [];
   let cell = startCell;
@@ -182,34 +182,84 @@ function computePath(startCell, steps, direction, playerName) {
   return path;
 }
 
-// First blockade cell along a path, or null if the way is clear.
-// Passing over AND landing on a wall both count — untouchable.
-function firstBlockadeOnPath(state, path, movingColor) {
-  for (const cell of path) {
-    if (isBlockadeAgainst(state, cell, movingColor)) return cell;
+// Normal path: forward skips other players' home lines;
+// backward skips ALL home lines (they're forward-entry only).
+function computePath(startCell, steps, direction, playerName) {
+  const skipCells = Object.entries(PLAYERS_META)
+    .filter(([name]) => direction === 'backward' || name !== playerName)
+    .flatMap(([, meta]) => meta.safeCells);
+  return walkCellsPath(startCell, steps, direction, skipCells);
+}
+
+// Home-kick entry path: forward, counting INTO targetColor's line.
+function computeEntryPath(startCell, steps, playerName, targetColor) {
+  const skipCells = Object.entries(PLAYERS_META)
+    .filter(([name]) => name !== playerName && name !== targetColor)
+    .flatMap(([, meta]) => meta.safeCells);
+  return walkCellsPath(startCell, steps, 'forward', skipCells);
+}
+
+// Exit path for a hunter inside a foreign home line: down the line,
+// out the entrance, onward along the ring. One continuous count.
+function computeExitPath(position, steps, playerName, ownerColor) {
+  const ownerSafe = PLAYERS_META[ownerColor].safeCells;
+  const entrance = ownerSafe[0] - 1;
+  const path = [];
+  let cell = position;
+  let moves = steps;
+
+  while (moves > 0 && cell > entrance) {
+    cell--;
+    path.push(cell);
+    moves--;
+  }
+  if (moves > 0) {
+    path.push(...computePath(cell, moves, 'forward', playerName));
+  }
+  return path;
+}
+
+// First wall that stops this piece, or null. Includes the BYPASS:
+// a wall of N is crossed (never landed on) if the mover has N+
+// pieces standing on the cell immediately before it.
+function firstBlockadeOnPath(state, startCell, path, movingColor) {
+  let prev = startCell;
+  for (let i = 0; i < path.length; i++) {
+    const cell = path[i];
+    const wallSize = blockadeSizeAgainst(state, cell, movingColor);
+    if (wallSize > 0) {
+      const isLanding = i === path.length - 1;
+      const counterWall = tokensOnCell(state, prev)
+        .filter(t => t.color === movingColor).length;
+      const bypassed =
+        CONFIG.blockadeBypass && !isLanding && counterWall >= wallSize;
+      if (!bypassed) return cell;
+    }
+    prev = cell;
   }
   return null;
 }
 
-// Build one move object from a computed path, resolving blockades
-// and kicks. Blocked moves are still returned — playing one is the
-// trap: the token stays where it started and the value burns.
-function buildMove(state, token, kind, path, direction, color) {
+// Build one move object, resolving walls and kicks. Blocked moves
+// are still returned — playing one is the trap.
+function buildMove(state, token, kind, path, direction, color, extras = {}) {
   const intendedTo = path[path.length - 1];
-  const blockedAt = firstBlockadeOnPath(state, path, color);
+  const blockedAt = firstBlockadeOnPath(state, token.position, path, color);
 
   if (blockedAt !== null) {
     return {
       tokenId: token.id,
       kind,
       from: token.position,
-      to: token.position,     // bounces back — goes nowhere
-      intendedTo,             // what the player THOUGHT would happen
+      to: token.position,
+      intendedTo,
       direction,
       path,
       blocked: true,
       blockedAt,
+      swapTo: null,
       kicks: [],
+      ...extras,
     };
   }
 
@@ -221,7 +271,7 @@ function buildMove(state, token, kind, path, direction, color) {
     tokenId: token.id,
     kind,
     from: token.position,
-    to: swapTo !== null ? swapTo : intendedTo,  // swap jumps tracks
+    to: swapTo !== null ? swapTo : intendedTo,
     intendedTo,
     direction,
     path,
@@ -229,11 +279,35 @@ function buildMove(state, token, kind, path, direction, color) {
     blockedAt: null,
     swapTo,
     kicks,
+    ...extras,
   };
 }
 
+// Given a move that carries kicks, produce its no-kick twin: same
+// token walking the same path to the same landing cell, but harming
+// nobody. For a slide kick, "no kick" also means NOT swapping onto
+// the victim's cell — the mover stays on its own landing cell.
+function makeNonKickTwin(move) {
+  const landing = move.intendedTo; // the mover's own cell, pre-swap
+  return {
+    ...move,
+    to: landing,
+    swapTo: null,
+    kicks: [],
+    declinedKick: true,
+  };
+}
+
+// Push a move, and if it carries kicks and kicks are optional, also
+// push its no-kick twin so the player can choose peace.
+function pushWithChoice(moves, move) {
+  moves.push(move);
+  if (CONFIG.optionalKicks && !move.blocked && move.kicks.length > 0) {
+    moves.push(makeNonKickTwin(move));
+  }
+}
+
 // ---- The heart of the engine ----
-// Every playable option for this roll value, traps included.
 function getLegalMoves(state, roll) {
   const color = state.currentPlayer;
   const meta = PLAYERS_META[color];
@@ -242,8 +316,7 @@ function getLegalMoves(state, roll) {
   for (const token of state.players[color].tokens) {
     if (token.retired) continue;
 
-    // Token still in base: only a 6 brings it out.
-    // A stack camped on your start cell bounces you back to base.
+    // Token in base: only a 6 brings it out.
     if (token.position === 0) {
       if (roll === 6) {
         moves.push(buildMove(state, token, 'enter', [meta.startCell], 'forward', color));
@@ -251,8 +324,18 @@ function getLegalMoves(state, roll) {
       continue;
     }
 
-    // Token in its own safe column: forward only, exact count to
-    // retire, no kicks possible (untouchable territory).
+    // Hunter inside a FOREIGN home line: counting out is its only move.
+    const foreignOwner = homeLineOwner(token.position, color);
+    if (foreignOwner) {
+      const exitPath = computeExitPath(token.position, roll, color, foreignOwner);
+      pushWithChoice(
+        moves,
+        buildMove(state, token, 'move', exitPath, 'forward', color, { exiting: foreignOwner })
+      );
+      continue;
+    }
+
+    // Token in its OWN home line: forward only, exact count to retire.
     if (meta.safeCells.includes(token.position)) {
       const lastSafe = meta.safeCells[meta.safeCells.length - 1];
       const distanceToEnd = lastSafe - token.position;
@@ -268,23 +351,13 @@ function getLegalMoves(state, roll) {
           path: [],
           blocked: false,
           blockedAt: null,
+          swapTo: null,
           kicks: [],
         });
       } else if (roll <= distanceToEnd) {
         const path = [];
         for (let i = 1; i <= roll; i++) path.push(token.position + i);
-        moves.push({
-          tokenId: token.id,
-          kind: 'move',
-          from: token.position,
-          to: token.position + roll,
-          intendedTo: token.position + roll,
-          direction: 'forward',
-          path,
-          blocked: false,
-          blockedAt: null,
-          kicks: [],
-        });
+        pushWithChoice(moves, buildMove(state, token, 'move', path, 'forward', color));
       }
       continue;
     }
@@ -292,21 +365,43 @@ function getLegalMoves(state, roll) {
     // --- Normal ring token ---
 
     const fwdPath = computePath(token.position, roll, 'forward', color);
-    moves.push(buildMove(state, token, 'move', fwdPath, 'forward', color));
+    pushWithChoice(moves, buildMove(state, token, 'move', fwdPath, 'forward', color));
 
-    // Backward exists only to hunt: a blocked backward move can't
-    // kick, so it isn't offered at all.
     if (CONFIG.backwardMoves) {
       const backPath = computePath(token.position, roll, 'backward', color);
       const backMove = buildMove(state, token, 'move', backPath, 'backward', color);
       const allowed = CONFIG.backwardOnlyToKick
         ? backMove.kicks.length > 0 && !backMove.blocked
         : !backMove.blocked;
+      // Backward exists only to hunt, so NO no-kick twin — declining a
+      // backward kick just means not making the move.
       if (allowed) moves.push(backMove);
+    }
+
+    // Home kicks: exact-count entry into an enemy line, only when the
+    // landing cell holds a single kickable enemy piece.
+    if (CONFIG.homeKicks) {
+      for (const target of Object.keys(PLAYERS_META)) {
+        if (target === color) continue;
+        const entryPath = computeEntryPath(token.position, roll, color, target);
+        const landing = entryPath[entryPath.length - 1];
+        if (!PLAYERS_META[target].safeCells.includes(landing)) continue;
+
+        const occupants = tokensOnCell(state, landing);
+        const isSingleEnemy =
+          occupants.length === 1 && occupants[0].color !== color;
+        if (!isSingleEnemy) continue;
+
+        moves.push(
+          buildMove(state, token, 'move', entryPath, 'forward', color, {
+            homeKick: true,
+            hunting: target,
+          })
+        );
+      }
     }
   }
 
-  // (mustKick is OFF for this house: all moves offered, none forced.)
   if (CONFIG.mustKick) {
     const kickMoves = moves.filter(m => m.kicks.length > 0);
     if (kickMoves.length > 0) return kickMoves;
@@ -316,22 +411,43 @@ function getLegalMoves(state, roll) {
 }
 
 // ---- Applying a move: the ONLY place token positions change ----
-// Returns what happened so the UI can narrate it.
+// Returns what happened so the UI can narrate it. Queue removal is
+// handled by the turn flow.
 function applyMove(state, move) {
   const token = getToken(state, move.tokenId);
   const color = state.currentPlayer;
-
-  // Lone Striker Rule: exactly one active token, and it kicks,
-  // while combo values remain — the rest of the queue burns.
-  const loneStriker =
-    move.kicks.length > 0 &&
-    countActiveTokens(state, color) === 1 &&
-    state.rolledQueue.length > 1;
+  const result = { ...move, kickReverted: false, restored: [] };
 
   if (move.blocked) {
-    // Bounce: token stays put, value is wasted.
-    return { ...move, queueBurned: false };
+    // Bounce: piece never left its cell — the gotcha does NOT fire,
+    // and any earlier lone-striker kick stands.
+    return result;
   }
+
+  // THE GOTCHA: the lone striker kicked earlier this turn and is now
+  // moving again — the kick is undone, victims return to their cells.
+  // The game never warned you.
+  if (
+    CONFIG.loneStrikerGotcha &&
+    state.turnKick &&
+    state.turnKick.active &&
+    state.turnKick.tokenId === move.tokenId
+  ) {
+    for (const victim of state.turnKick.victims) {
+      getToken(state, victim.tokenId).position = victim.cell;
+      result.restored.push(victim);
+    }
+    result.kickReverted = true;
+    state.turnKick = null;
+  }
+
+  // Is THIS move a lone-striker kick? (Entering a new token doesn't
+  // count — the rule is about the lone token itself kicking.)
+  const loneStrikerKick =
+    CONFIG.loneStrikerGotcha &&
+    move.kicks.length > 0 &&
+    move.kind !== 'enter' &&
+    countActiveTokens(state, color) === 1;
 
   for (const kick of move.kicks) {
     getToken(state, kick.tokenId).position = 0;
@@ -340,11 +456,15 @@ function applyMove(state, move) {
   if (move.kind === 'retire') {
     token.retired = true;
   } else {
-    token.position = move.to; // already the swap cell if side-kicking
+    token.position = move.to;
   }
 
-  if (loneStriker) {
-    state.rolledQueue = state.rolledQueue.slice(0, 1); // only the value being spent survives
+  if (loneStrikerKick) {
+    state.turnKick = {
+      active: true,
+      tokenId: move.tokenId,
+      victims: move.kicks.map(k => ({ tokenId: k.tokenId, cell: k.cell })),
+    };
   }
 
   if (countRetired(state, color) === 4) {
@@ -352,11 +472,13 @@ function applyMove(state, move) {
     state.winner = color;
   }
 
-  return { ...move, queueBurned: loneStriker };
+  return result;
 }
 
 function advanceTurn(state) {
   state.rolledQueue = [];
+  state.rollCredits = 1;
+  state.turnKick = null;
   const index = TURN_ORDER.indexOf(state.currentPlayer);
   state.currentPlayer = TURN_ORDER[(index + 1) % TURN_ORDER.length];
   return state.currentPlayer;

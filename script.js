@@ -1,21 +1,23 @@
 'use strict';
 
 /* =========================================================
-   Ghana Ludu — UI LAYER (script.js) — STEP 4
+   Ghana Ludu — UI LAYER (script.js)
    Renders gameState and turns clicks into game actions.
    All rules live in game.js — this file never decides them.
 
-   Flow of a turn (roll banking):
-   1. Player rolls. Every 6 banks and they roll again.
-   2. First non-6 closes the bank; the queue is spent in order.
-   3. For each value: legal moves come from game.js. One option
-      auto-plays; several light up gold and the player picks.
-   4. Traps resolve on play: bounces walk back, lone-striker
-      kicks burn the rest of the queue. No hints, no warnings —
-      paying attention IS the game.
+   Turn flow (per RULES.md v2):
+   - Roll credits: a turn starts with one; each 6 grants one
+     more. The player may COUNT NOW or ROLL AGAIN — free order.
+   - Values are chips. Tap one or more to combine them, then
+     "Count N ▶" plays the sum as ONE move on one token
+     (e.g. 6+4 = 10 backward for the kick), remaining values
+     stay banked for other tokens.
+   - Traps stay invisible until played: blockade bounces, and
+     the lone-striker GOTCHA — kick with your only token, move
+     it again, and the kick silently un-happens.
    ========================================================= */
 
-// Set to true later if you want a beginner mode that flags kicks.
+// Set to true later for a beginner mode that flags kicks.
 const SHOW_HINTS = false;
 
 // ---- Element references ----
@@ -56,6 +58,8 @@ for (const color of Object.keys(PLAYERS_META)) {
 const gameState = createGameState();
 
 let pendingMoves = [];
+let spendingIndices = null;      // queue slots being spent on the current move
+let selectedIndices = new Set(); // chips currently toggled on
 
 // ---- Display helpers ----
 
@@ -83,15 +87,33 @@ function queueLabel() {
 }
 
 function kickCommentary(color, kick) {
-  if (kick.via === 'side') {
-    return `SIDE KICK! ${color} jumped tracks onto cell ${kick.cell} and sent ${kick.color} packing 😤`;
+  switch (kick.via) {
+    case 'home':
+      return `HOME KICK! ${color} invaded ${kick.color}'s home line and dragged them out 😈`;
+    case 'side':
+      return `SLIDE KICK! ${color} jumped tracks onto cell ${kick.cell} and sent ${kick.color} packing 😤`;
+    default:
+      return `${color} kicked ${kick.color} back home! 😈`;
   }
-  return `${color} kicked ${kick.color} back home! 😈`;
+}
+
+// Every total reachable by combining one or more banked values.
+function allSubsetTotals(values) {
+  const totals = new Set();
+  const n = values.length;
+  for (let mask = 1; mask < (1 << n); mask++) {
+    let sum = 0;
+    for (let i = 0; i < n; i++) {
+      if (mask & (1 << i)) sum += values[i];
+    }
+    totals.add(sum);
+  }
+  return [...totals];
 }
 
 // ---- Token selection ----
 
-function highlightChoices(moves) {
+function highlightChoices(moves, total) {
   gameState.awaitingChoice = true;
   pendingMoves = moves;
 
@@ -100,14 +122,22 @@ function highlightChoices(moves) {
     const el = tokenEls[tokenId];
     if (!el) continue;
     el.classList.add('selectable');
-    // No red glow unless beginner hints are on: spotting the
-    // kick (and the wall) is the player's job.
     if (SHOW_HINTS && tokenMoves.some(m => m.kicks.length > 0)) {
       el.classList.add('selectable-kick');
     }
   }
 
-  setStatus(`${gameState.currentPlayer}, pick a token to move ${gameState.rolledQueue[0]} steps`);
+  setStatus(`${gameState.currentPlayer}, pick a token to move ${total} steps`);
+
+  // Let the player recount with different values before committing.
+  commentRow.innerHTML = '';
+  if (gameState.rolledQueue.length > 1) {
+    commentRow.appendChild(makeButton('↩ change values', () => {
+      clearChoices();
+      spendingIndices = null;
+      presentOptions();
+    }));
+  }
 }
 
 function clearChoices() {
@@ -124,6 +154,14 @@ function groupMovesByToken(moves) {
     (groups[move.tokenId] = groups[move.tokenId] || []).push(move);
     return groups;
   }, {});
+}
+
+function makeButton(label, onClick) {
+  const btn = document.createElement('button');
+  btn.className = 'move-choice';
+  btn.textContent = label;
+  btn.addEventListener('click', onClick);
+  return btn;
 }
 
 function handleTokenClick(tokenId) {
@@ -144,20 +182,39 @@ function handleTokenClick(tokenId) {
 
 // Buttons show the INTENDED destination, never the outcome.
 // A blocked move looks identical to a clean one — that's the trap.
+// When a landing offers kick AND no-kick, both are shown, labelled.
 function showDirectionChoice(tokenMoves) {
   commentRow.innerHTML = '';
-  setStatus('Which way?');
+  setStatus('Choose your move:');
 
   for (const move of tokenMoves) {
-    const btn = document.createElement('button');
-    btn.className = 'move-choice';
-    const arrow = move.direction === 'forward' ? '➡' : '⬅';
-    btn.textContent = `${arrow} ${move.direction} to cell ${move.intendedTo}`;
-    btn.addEventListener('click', () => {
+    let label;
+    if (move.homeKick) {
+      label = `⚔ into ${move.hunting}'s home line (cell ${move.intendedTo})`;
+    } else {
+      const arrow = move.direction === 'forward' ? '➡' : '⬅';
+      const dest = `${arrow} ${move.direction} to cell ${move.intendedTo}`;
+      if (move.kicks.length > 0) {
+        const via = move.kicks[0].via === 'side' ? 'slide-kick' : 'kick';
+        label = `${dest} — ${via} 😈`;
+      } else if (move.declinedKick) {
+        label = `${dest} — no kick, stay put`;
+      } else {
+        label = dest;
+      }
+    }
+    commentRow.appendChild(makeButton(label, () => {
       clearChoices();
       playMove(move);
-    });
-    commentRow.appendChild(btn);
+    }));
+  }
+
+  if (gameState.rolledQueue.length > 1) {
+    commentRow.appendChild(makeButton('↩ change values', () => {
+      clearChoices();
+      spendingIndices = null;
+      presentOptions();
+    }));
   }
 }
 
@@ -205,6 +262,16 @@ function sendTokenToBase(tokenId) {
   if (fromCell && fromCell.classList.contains('cell')) restackCell(fromCell);
 }
 
+// The GOTCHA restore: a kicked token walks back onto the cell it
+// was kicked from, as if nothing happened.
+function restoreTokenToCell(tokenId, cellNumber) {
+  const tokenEl = tokenEls[tokenId];
+  const color = tokenId.split('-')[0];
+  tokenEl.classList.add('active-token');
+  tokenEl.style.background = PLAYERS_META[color].color;
+  moveTokenToCell(tokenEl, cellNumber);
+}
+
 function retireTokenVisual(tokenId) {
   const tokenEl = tokenEls[tokenId];
   tokenEl.classList.remove('active-token');
@@ -236,8 +303,7 @@ function walkCells(tokenEl, cells, color, onDone) {
   }, 450);
 }
 
-// Blocked move: walk up to the wall, then walk back home. Painful
-// to watch on purpose.
+// Blocked move: walk up to the wall, then walk back home.
 function animateBounce(move, tokenEl, color, onDone) {
   const outCells = [];
   for (const cell of move.path) {
@@ -246,8 +312,6 @@ function animateBounce(move, tokenEl, color, onDone) {
   }
 
   if (outCells.length === 0) {
-    // Wall is on the very first step (or a blocked base entry):
-    // nowhere to walk, just narrate the bounce.
     onDone();
     return;
   }
@@ -278,8 +342,15 @@ function playMove(move) {
       setCommentary(kickCommentary(color, kick));
     }
 
-    if (result.queueBurned) {
-      setCommentary(`🛑 Lone striker rule! ${color}'s only token kicked — the rest of the combo burns.`);
+    // THE GOTCHA: the lone striker moved again — its earlier kick
+    // silently un-happens; the victim strolls back to its cell.
+    if (result.kickReverted) {
+      for (const victim of result.restored) {
+        restoreTokenToCell(victim.tokenId, victim.cell);
+      }
+      setCommentary(
+        `😱 GOTCHA! ${color} kicked and moved with their only token — the kick doesn't count. Back it goes!`
+      );
     }
 
     if (move.kind === 'retire') {
@@ -294,10 +365,16 @@ function playMove(move) {
       return;
     }
 
-    // This value is spent — move to the next one or end the turn.
-    gameState.rolledQueue.shift();
+    // Remove every value spent on this move (highest index first so
+    // splicing doesn't shift the others).
+    if (spendingIndices !== null) {
+      [...spendingIndices].sort((a, b) => b - a).forEach(i => {
+        gameState.rolledQueue.splice(i, 1);
+      });
+      spendingIndices = null;
+    }
     gameState.isMoving = false;
-    processQueue();
+    presentOptions();
   };
 
   if (move.kind === 'retire') {
@@ -314,49 +391,133 @@ function playMove(move) {
     return;
   }
 
-  // Normal walk; a side-kick swap adds one extra hop across tracks.
+  // Normal walk; a slide-kick swap adds one extra hop across tracks.
   const cells = move.swapTo !== null && move.swapTo !== undefined
     ? [...move.path, move.swapTo]
     : move.path;
   walkCells(tokenEl, cells, color, finish);
 }
 
-// ---- Spending the banked queue ----
+// ---- The turn loop: roll and count in any order ----
 
 function endTurn() {
+  spendingIndices = null;
+  selectedIndices = new Set();
   advanceTurn(gameState);
   updateTurnDisplay();
   displayCurrentPlayer.textContent = `${gameState.currentPlayer}'s turn`;
   setStatus('Roll the dice!');
 }
 
-function processQueue() {
-  if (gameState.rolledQueue.length === 0) {
+function presentOptions() {
+  if (gameState.gameOver) return;
+  const queue = gameState.rolledQueue;
+  const credits = gameState.rollCredits;
+
+  if (queue.length === 0 && credits === 0) {
     endTurn();
     return;
   }
 
-  const value = gameState.rolledQueue[0];
-  const remaining = gameState.rolledQueue.slice(1);
-  displayCurrentPlayer.textContent =
-    `${gameState.currentPlayer} playing ${value}` +
-    (remaining.length ? ` (still banked: ${remaining.join(', ')})` : '');
+  if (queue.length === 0) {
+    setStatus(`${gameState.currentPlayer}, roll the dice!`);
+    return;
+  }
 
-  const moves = getLegalMoves(gameState, value);
+  // Playable if ANY value or combination of values has a legal move.
+  const anyPlayable = allSubsetTotals(queue).some(
+    total => getLegalMoves(gameState, total).length > 0
+  );
+
+  if (!anyPlayable) {
+    if (credits > 0) {
+      setStatus(`${gameState.currentPlayer}: no moves yet — roll again!`);
+      return; // values stay banked; a new roll may unlock a combination
+    }
+    setCommentary(
+      `No legal moves for ${gameState.currentPlayer}'s remaining values (${queueLabel()}) — burned.`
+    );
+    queue.length = 0;
+    endTurn();
+    return;
+  }
+
+  // A single value with no rolls left: no combination choice exists.
+  if (queue.length === 1 && credits === 0) {
+    spendValues([0]);
+    return;
+  }
+
+  showValueChips();
+}
+
+// Value chips: tap to select one or more, then Count them together.
+function showValueChips() {
+  gameState.awaitingChoice = false;
+  pendingMoves = [];
+  selectedIndices = new Set();
+  renderChips();
+  displayCurrentPlayer.textContent =
+    `${gameState.currentPlayer}'s values: ${queueLabel()}`;
+  setStatus(
+    gameState.rollCredits > 0
+      ? `${gameState.currentPlayer}: tap value(s) to count together, or roll again`
+      : `${gameState.currentPlayer}: tap value(s) to count together`
+  );
+}
+
+function renderChips() {
+  commentRow.innerHTML = '';
+
+  gameState.rolledQueue.forEach((value, i) => {
+    const btn = makeButton(`${value}`, () => {
+      if (selectedIndices.has(i)) selectedIndices.delete(i);
+      else selectedIndices.add(i);
+      renderChips();
+    });
+    if (selectedIndices.has(i)) {
+      btn.style.background = 'var(--gold)';
+    }
+    commentRow.appendChild(btn);
+  });
+
+  if (selectedIndices.size > 0) {
+    const total = [...selectedIndices].reduce(
+      (sum, i) => sum + gameState.rolledQueue[i], 0
+    );
+    const go = makeButton(`Count ${total} ▶`, () => {
+      spendValues([...selectedIndices]);
+    });
+    go.style.fontWeight = '800';
+    commentRow.appendChild(go);
+  }
+}
+
+function spendValues(indices) {
+  spendingIndices = indices;
+  const total = indices.reduce((sum, i) => sum + gameState.rolledQueue[i], 0);
+  const others = gameState.rolledQueue.filter((_, i) => !indices.includes(i));
+  displayCurrentPlayer.textContent =
+    `${gameState.currentPlayer} counting ${total}` +
+    (others.length ? ` (still banked: ${others.join(', ')})` : '');
+
+  const moves = getLegalMoves(gameState, total);
 
   if (moves.length === 0) {
-    setCommentary(`No legal move for the ${value} — value burned.`);
-    gameState.rolledQueue.shift();
-    processQueue();
+    // Nothing burns — the player just recounts with different values.
+    setStatus(`No move for a count of ${total} — pick different values.`);
+    spendingIndices = null;
+    showValueChips();
     return;
   }
 
   if (moves.length === 1) {
+    commentRow.innerHTML = '';
     playMove(moves[0]);
     return;
   }
 
-  highlightChoices(moves);
+  highlightChoices(moves, total);
 }
 
 // ---- Dice ----
@@ -368,24 +529,26 @@ function animateDice() {
   setTimeout(() => dice.classList.remove('roll-animate'), 500);
 }
 
-// True while the player is still rolling to grow the combo.
-let banking = false;
-
 dice.addEventListener('click', function () {
   if (gameState.gameOver || gameState.isMoving) return;
   if (gameState.awaitingChoice) {
-    setStatus(`${gameState.currentPlayer}, pick a glowing token first!`);
+    setStatus(`${gameState.currentPlayer}, finish your move first!`);
     return;
   }
-  // Dice only works at the start of a turn or mid-banking —
-  // never while the queue is being spent.
-  if (gameState.rolledQueue.length > 0 && !banking) return;
+  if (gameState.rollCredits <= 0) {
+    if (gameState.rolledQueue.length > 0) {
+      setStatus(`${gameState.currentPlayer}: no rolls left — count your values!`);
+    }
+    return;
+  }
 
-  bankRolls();
+  spendingIndices = null;
+  doRoll();
 });
 
-// Banking phase: keep rolling while 6s land, then spend the queue.
-function bankRolls() {
+function doRoll() {
+  gameState.rollCredits--;
+
   const result = Math.trunc(Math.random() * 6) + 1;
   gameState.rolledQueue.push(result);
 
@@ -403,13 +566,11 @@ function bankRolls() {
   });
 
   if (result === 6) {
-    banking = true;
-    setStatus(`A 6! Banked — roll again to grow the combo 🔥`);
-    return;
+    gameState.rollCredits++;
+    setCommentary(`A 6! ${color} may count now or roll again 🔥`);
   }
 
-  banking = false;
-  processQueue();
+  presentOptions();
 }
 
 // ---- Initial render ----
