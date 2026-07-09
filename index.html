@@ -28,6 +28,69 @@
 </head>
 
 <body>
+  <!-- Setup screen: shown before the game starts -->
+  <div class="setup-overlay" id="setup">
+    <div class="setup-card">
+      <h1 class="setup-title">Ghana Ludu</h1>
+
+      <section class="setup-section">
+        <h2>Players</h2>
+        <div class="setup-row" id="player-count">
+          <button class="setup-choice" data-count="2">2</button>
+          <button class="setup-choice is-on" data-count="3">3</button>
+          <button class="setup-choice" data-count="4">4</button>
+        </div>
+      </section>
+
+      <section class="setup-section">
+        <h2>Colours <span class="setup-hint" id="colour-hint"></span></h2>
+        <div class="setup-row" id="colour-picks">
+          <button class="colour-pick" data-colour="green">
+            <span class="swatch swatch-green"></span>Green
+          </button>
+          <button class="colour-pick" data-colour="red">
+            <span class="swatch swatch-red"></span>Red
+          </button>
+          <button class="colour-pick" data-colour="yellow">
+            <span class="swatch swatch-yellow"></span>Yellow
+          </button>
+          <button class="colour-pick" data-colour="blue">
+            <span class="swatch swatch-blue"></span>Blue
+          </button>
+        </div>
+      </section>
+
+      <section class="setup-section">
+        <h2>Who starts?</h2>
+        <div class="setup-row" id="starter-picks"></div>
+      </section>
+
+      <section class="setup-section">
+        <h2>Rules</h2>
+        <div class="setup-row" id="preset-picks">
+          <button class="setup-choice" data-preset="classic">Classic</button>
+          <button class="setup-choice is-on" data-preset="street">Street</button>
+          <button class="setup-choice" data-preset="noMercy">No Mercy</button>
+        </div>
+        <p class="setup-blurb" id="preset-blurb">Back kicks, slide kicks, blockades, the gotcha.</p>
+
+        <details class="setup-advanced">
+          <summary>Advanced</summary>
+          <label><input type="checkbox" data-rule="backwardMoves" checked> Back kicks (count backward to hunt)</label>
+          <label><input type="checkbox" data-rule="sideKicks" checked> Slide kicks (parallel cells)</label>
+          <label><input type="checkbox" data-rule="homeKicks"> Home kicks (invade home lines)</label>
+          <label><input type="checkbox" data-rule="blockades" checked> Blockades (2+ tokens block)</label>
+          <label><input type="checkbox" data-rule="blockadeBypass" checked> Blockade bypass (counter-wall
+            crosses)</label>
+          <label><input type="checkbox" data-rule="loneStrikerGotcha" checked> The lone striker gotcha</label>
+        </details>
+      </section>
+
+      <p class="setup-error" id="setup-error"></p>
+      <button class="setup-start" id="start-game">Start game</button>
+    </div>
+  </div>
+
   <header>
     <section class="intro">
       <h1>Ghana Ludu</h1>
@@ -45,38 +108,65 @@
           This version brings the same energy to your browser. I built this with HTML, CSS, and JavaScript.
         </p>
         <section id="todo">
-          <h2 class="text-lg font-bold">Upcoming Features</h2>
-          <p>I'll be adding more of the Ludu wickedness soon, including:</p>
-          <ul id="todo-list">
+          <h2 class="text-lg font-bold">The Ludu wickedness</h2>
+          <p>Already in the game:</p>
+          <ul id="todo-list" class="features-done">
             <li>
-              Forward Kick: Land on an opponent while moving forward to kick them out
+              Forward kick: land on an opponent while moving forward to kick them out
             </li>
             <li>
-              Back Kick: Land on an opponent counting backward to kick them out
+              Back kick: count backward to hunt an opponent down
             </li>
             <li>
-              Side kick: Land on a parallel cell with opponent to send them home
+              Side kick: land parallel to an opponent, send them home and take their spot
             </li>
             <li>
-              Home kick: Land on an opponent on their way home to kick them out
+              Line of sight: a token in the middle lane shields side kicks
             </li>
             <li>
-              Implement stacking rule (2+ tokens block path)
+              Blockades: 2+ stacked tokens are a wall — cross it and you bounce back, move wasted
+            </li>
+            <li>
+              Roll banking: every 6 banks and you roll again, then spend the combo
+            </li>
+            <li>
+              The lone striker trap: kick with your only active token and the rest of your combo burns
+            </li>
+            <li>
+              Home kick: invade an opponent's home line with an exact count, then fight your way out
+            </li>
+            <li>
+              Roll banking: every 6 grants another roll — count now or roll again, your choice
+            </li>
+            <li>
+              Combine your banked values into one count to reach a kick
+            </li>
+            <li>
+              The lone striker gotcha: kick with your only token, then move it, and the kick doesn't count
+            </li>
+            <li>
+              Kicks are always optional — sometimes the wickedness is not kicking
             </li>
             <li>
               Choose which token to move after rolling
             </li>
             <li>
-              Add animation when sending a token home
+              2, 3 or 4 players, pick your colours, pick who starts
             </li>
             <li>
-              Allow choosing number of players
+              Rule presets: Classic, Street, No Mercy
+            </li>
+          </ul>
+          <p>Coming soon:</p>
+          <ul class="features-coming">
+            <li>
+              Animation when sending a token home
             </li>
             <li>
-              Add sound effects for dice rolls and kicks
+              Sound effects for dice rolls and kicks
             </li>
             <li>
-              Add an AI opponent (play with computer)
+              An AI opponent (play with computer)
             </li>
             <li>
               Online multiplayer (play with friends)
@@ -265,9 +355,14 @@
   </main>
   <footer>
     <p>I designed this game to practice the Document Object Model and Js</p>
+
+    <p>If you have any questions, <a target="_blank"
+        href="https://docs.google.com/forms/d/e/1FAIpQLSc44dGoKDan8G1zBAak61ZMLTy4tSn9v5gJ_r7TWgOoAxIW7g/viewform?usp=publish-editor">talk
+        to me here</a></p>
   </footer>
   <script src="./game.js"></script>
   <script src="./script.js"></script>
+  <script src="./setup.js"></script>
 
 </body>
 

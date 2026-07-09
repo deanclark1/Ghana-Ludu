@@ -55,7 +55,9 @@ for (const color of Object.keys(PLAYERS_META)) {
 }
 
 // ---- The one source of truth ----
-const gameState = createGameState();
+// Built by startGame(), which setup.js calls once the player has
+// chosen colours, starter, and rules.
+let gameState = null;
 
 let pendingMoves = [];
 let spendingIndices = null;      // queue slots being spent on the current move
@@ -165,7 +167,7 @@ function makeButton(label, onClick) {
 }
 
 function handleTokenClick(tokenId) {
-  if (!gameState.awaitingChoice) return;
+  if (!gameState || !gameState.awaitingChoice) return;
 
   const tokenMoves = pendingMoves.filter(m => m.tokenId === tokenId);
   if (tokenMoves.length === 0) return;
@@ -556,7 +558,7 @@ function animateDice() {
 }
 
 dice.addEventListener('click', function () {
-  if (gameState.gameOver || gameState.isMoving) return;
+  if (!gameState || gameState.gameOver || gameState.isMoving) return;
   if (gameState.awaitingChoice) {
     setStatus(`${gameState.currentPlayer}, finish your move first!`);
     return;
@@ -599,7 +601,20 @@ function doRoll() {
   presentOptions();
 }
 
-// ---- Initial render ----
-displayCurrentPlayer.textContent = `${gameState.currentPlayer} is starting the game`;
-setStatus('Roll the dice!');
-updateTurnDisplay();
+// ---- Starting a game ----
+// Called by setup.js. Builds the state for the chosen players and
+// marks unused homes as inactive (they stay on the board, quiet).
+function startGame(colours, starter) {
+  gameState = createGameState(colours, starter);
+
+  for (const color of Object.keys(PLAYERS_META)) {
+    const home = document.querySelector(`.${color}-home`);
+    if (!home) continue;
+    home.classList.toggle('is-inactive', !gameState.players[color].active);
+  }
+
+  displayCurrentPlayer.textContent = `${gameState.currentPlayer} is starting the game`;
+  setCommentary('');
+  setStatus('Roll the dice!');
+  updateTurnDisplay();
+}

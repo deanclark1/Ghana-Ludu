@@ -42,6 +42,63 @@ const PLAYERS_META = {
 const TURN_ORDER = ['yellow', 'blue', 'red', 'green'];
 const MAX_CELL = 72;
 
+// Diagonally opposite pairs — equal distance to home. Required for 2P.
+const DIAGONAL_PAIRS = [
+  ['yellow', 'red'],
+  ['green', 'blue'],
+];
+
+function areDiagonal(a, b) {
+  return DIAGONAL_PAIRS.some(
+    pair => pair.includes(a) && pair.includes(b)
+  );
+}
+
+// Rule presets. Advanced toggles override any of these individually.
+const PRESETS = {
+  classic: {
+    label: 'Classic',
+    blurb: 'Basic kicks only. Gentle.',
+    rules: {
+      backwardMoves: false,
+      sideKicks: false,
+      homeKicks: false,
+      blockades: true,
+      blockadeBypass: false,
+      loneStrikerGotcha: false,
+    },
+  },
+  street: {
+    label: 'Street',
+    blurb: 'Back kicks, slide kicks, blockades, the gotcha.',
+    rules: {
+      backwardMoves: true,
+      sideKicks: true,
+      homeKicks: false,
+      blockades: true,
+      blockadeBypass: true,
+      loneStrikerGotcha: true,
+    },
+  },
+  noMercy: {
+    label: 'No Mercy',
+    blurb: 'Everything on. Home lines are not safe.',
+    rules: {
+      backwardMoves: true,
+      sideKicks: true,
+      homeKicks: true,
+      blockades: true,
+      blockadeBypass: true,
+      loneStrikerGotcha: true,
+    },
+  },
+};
+
+// Apply a set of rule overrides onto CONFIG.
+function applyRules(rules) {
+  Object.assign(CONFIG, rules);
+}
+
 // ---- Parallel cells (slide-kick geometry) ----
 const PARALLEL_GROUPS = [
   // Yellow arm (bottom)
@@ -61,10 +118,18 @@ for (const [a, middle, b] of PARALLEL_GROUPS) {
 }
 
 // ---- The single source of truth ----
-function createGameState() {
+// activePlayers: which colours are in this game (default: all four).
+// startingPlayer: who goes first (default: first in turn order).
+// Inactive colours keep their tokens in base and are skipped.
+function createGameState(activePlayers, startingPlayer) {
+  const active = (activePlayers && activePlayers.length)
+    ? TURN_ORDER.filter(c => activePlayers.includes(c))
+    : [...TURN_ORDER];
+
   const players = {};
   for (const color of Object.keys(PLAYERS_META)) {
     players[color] = {
+      active: active.includes(color),
       tokens: [1, 2, 3, 4].map(n => ({
         id: `${color}-${n}`,
         position: 0,      // 0 = still in base
@@ -72,8 +137,14 @@ function createGameState() {
       })),
     };
   }
+
+  const first = startingPlayer && active.includes(startingPlayer)
+    ? startingPlayer
+    : active[0];
+
   return {
-    currentPlayer: 'yellow',
+    activePlayers: active,
+    currentPlayer: first,
     rolledQueue: [],   // banked values, spendable in any order
     rollCredits: 1,    // rolls available; each 6 grants one more
     countsMade: 0,     // how many counts (moves) played this turn
@@ -507,7 +578,10 @@ function advanceTurn(state) {
   state.rollCredits = 1;
   state.countsMade = 0;
   state.turnKick = null;
-  const index = TURN_ORDER.indexOf(state.currentPlayer);
-  state.currentPlayer = TURN_ORDER[(index + 1) % TURN_ORDER.length];
+
+  // Walk clockwise through TURN_ORDER, skipping colours not in this game.
+  const order = state.activePlayers || TURN_ORDER;
+  const index = order.indexOf(state.currentPlayer);
+  state.currentPlayer = order[(index + 1) % order.length];
   return state.currentPlayer;
 }

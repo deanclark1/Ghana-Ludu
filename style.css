@@ -3,17 +3,15 @@
    Direction: a painted wooden board in daylight.
    Warm sand page, white cards, the board is the hero.
 
-   Palette
-   --page        warm sand (page background)
-   --card        white card surface
-   --ink         near-black text & board lines
-   --muted       secondary text
-   --wood        the board frame
-   --gold/red/green  Ghana flag accent, used sparingly
+   Responsive strategy — ONE scaling unit:
+   --u is 1vmin on small screens and caps at 8.6px on large
+   ones. The board is 90 units wide; tokens, portraits and
+   the dice are all sized in the same units, so everything
+   scales together and stops growing together. No element
+   can outgrow the board.
 
-   Type
-   Lilita One — display: title, headings, commentary, winner
-   Karla      — body and UI text
+   Palette: warm sand page, white cards, Ghana flag accent.
+   Type: Lilita One (display) + Karla (body).
    ========================================================= */
 
 :root {
@@ -27,6 +25,9 @@
   --gold-deep: #B8860B;
   --flag-red: #CE1126;
   --flag-green: #006B3F;
+
+  /* the board's measuring stick */
+  --u: min(1vmin, 8.6px);
 }
 
 * {
@@ -41,6 +42,16 @@ body {
   padding: 0;
 }
 
+img {
+  max-width: 100%;
+}
+
+/* Hidden on phones, shown from tablet up
+   (this base rule was missing — the class did nothing before) */
+.mobile-none {
+  display: none;
+}
+
 /* ---------- Header ---------- */
 
 header {
@@ -48,12 +59,12 @@ header {
   justify-content: center;
   align-items: center;
   text-align: center;
-  padding-top: 1.25rem;
+  padding: 1.25rem 1rem 0;
 }
 
 .intro h1 {
   font-family: 'Lilita One', cursive;
-  font-size: clamp(2.2rem, 6vw, 3.4rem);
+  font-size: clamp(2rem, 6vw, 3.4rem);
   letter-spacing: 0.02em;
   color: var(--ink);
   text-shadow: 3px 3px 0 rgba(224, 183, 91, 0.55);
@@ -99,6 +110,9 @@ header {
   align-items: center;
   justify-content: center;
   gap: 1.25rem;
+  width: 100%;
+  max-width: 1500px;
+  margin: 0 auto;
   padding: 1rem 0.95rem 2rem;
 }
 
@@ -156,7 +170,7 @@ header {
 .playing-status,
 .player-activity-container {
   flex: 1 1 45%;
-  min-width: 230px;
+  min-width: min(230px, 100%);
   padding: 0.75rem 1rem 0.9rem;
   box-sizing: border-box;
   background: var(--page);
@@ -250,31 +264,38 @@ header {
 .white-border {
   background-color: white;
   padding: 0.35rem;
+  border-radius: 6px;
 }
 
 .yellow-wood {
   background-color: var(--wood);
   padding: 1rem;
+  border-radius: 14px;
   box-shadow:
     0 14px 34px rgba(96, 74, 34, 0.28),
     0 3px 9px rgba(96, 74, 34, 0.18);
+  max-width: 100%;
 }
 
+/* 90 units wide, always square. --u caps at 8.6px, so the board
+   tops out around 775px — and everything inside, sized in the
+   same units, stops growing at the same moment. */
 .ludo-board {
   display: grid;
   grid-template-columns: 1fr 0.5fr 1fr;
   grid-template-rows: 1fr 0.5fr 1fr;
-  width: 90vmin;
-  max-width: 90vw;
+  width: calc(var(--u) * 90);
+  max-width: 92vw;
   aspect-ratio: 1 / 1;
   margin: 0 auto;
   box-sizing: border-box;
 }
 
 .home {
-  padding: .3rem;
+  padding: calc(var(--u) * 0.8);
   border: 1px solid var(--ink);
   transition: background-color 0.4s ease, transform 0.3s ease;
+  overflow: hidden;
 }
 
 .home.player--active {
@@ -317,7 +338,8 @@ header {
 
 /* Star portraits: shared rule owns position/repeat/size so every
    photo fills its frame identically; each home only swaps the
-   image (longhand background-image never resets background-size) */
+   image (longhand background-image never resets background-size).
+   Height is in board units, so portraits scale with the board. */
 .green-home .img,
 .red-home .img,
 .yellow-home .img,
@@ -325,7 +347,7 @@ header {
   background-position: center;
   background-repeat: no-repeat;
   background-size: cover;
-  height: 32vmin;
+  height: calc(var(--u) * 32);
   display: flex;
 }
 
@@ -355,9 +377,10 @@ header {
 .home .img .image-caption h2 {
   font-family: 'Lilita One', cursive;
   font-weight: 400;
-  font-size: 8px;
+  font-size: max(8px, calc(var(--u) * 1.3));
   letter-spacing: 0.04em;
   padding-left: 5px;
+  margin: 0.5em 0;
   color: var(--ink);
 }
 
@@ -451,20 +474,20 @@ header {
   background: #e74c3c;
 }
 
-/* ---------- Tokens ---------- */
+/* ---------- Tokens (all in board units) ---------- */
 
 .tokens {
   display: grid;
-  grid-template-columns: repeat(2, 5vmin);
-  grid-template-rows: repeat(2, 5vmin);
-  gap: .5vmin;
+  grid-template-columns: repeat(2, calc(var(--u) * 6));
+  grid-template-rows: repeat(2, calc(var(--u) * 6));
+  gap: calc(var(--u) * 0.6);
   padding: 5px;
   border-radius: 10px;
 }
 
 .token {
-  width: 4vmin;
-  height: 4vmin;
+  width: calc(var(--u) * 4.5);
+  height: calc(var(--u) * 4.5);
   border-radius: 50%;
   transform-origin: center;
   backface-visibility: hidden;
@@ -516,11 +539,11 @@ header {
   box-shadow: none;
 }
 
-/* Precise, shifted cell overlapping configuration */
+/* Tokens standing on board cells scale with the cells */
 .cell .token {
   position: absolute;
-  width: 3.5vmin !important;
-  height: 3.5vmin !important;
+  width: calc(var(--u) * 3.6) !important;
+  height: calc(var(--u) * 3.6) !important;
   transition: transform 0.4s ease, top 0.2s, left 0.2s;
 }
 
@@ -541,10 +564,13 @@ header {
 
 .dice {
   position: absolute;
-  background-color: var(--ink);
+  background-color: transparent;
   border-radius: 100%;
   cursor: pointer;
   transition: transform 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .dice:hover {
@@ -552,8 +578,8 @@ header {
 }
 
 .dice i {
-  font-size: clamp(3rem, 7vmin, 3.5rem);
-  color: white;
+  font-size: clamp(2.4rem, calc(var(--u) * 7), 3.6rem);
+  color: var(--gold);
   filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.5));
 }
 
@@ -593,8 +619,10 @@ header {
   align-items: center;
   justify-content: center;
   color: white;
-  font-size: 3rem;
+  font-size: clamp(1.6rem, 5vw, 3rem);
   z-index: 9999;
+  padding: 1rem;
+  text-align: center;
 }
 
 .winner-overlay h1 {
@@ -618,21 +646,42 @@ header {
 
 /* ---------- Todo list ---------- */
 
-#todo-list {
+.features-done,
+.features-coming {
   padding-inline-start: 14px;
   text-align: left;
   color: var(--muted);
+  list-style: none;
+  margin-top: 0.3rem;
 }
-#todo-list li {
-  cursor: pointer;
-  padding: 4px 0;
+.features-done li,
+.features-coming li {
+  padding: 4px 0 4px 1.5em;
+  position: relative;
 }
-#todo-list li::marker {
+.features-done li::before {
+  content: "✓";
+  position: absolute;
+  left: 0;
+  font-weight: 700;
+  color: var(--flag-green);
+}
+.features-coming li::before {
+  content: "•";
+  position: absolute;
+  left: 0;
+  font-weight: 700;
   color: var(--gold-deep);
 }
 .done {
   text-decoration: line-through;
   opacity: 0.6;
+}
+/* The ruled-out item gets a cross, not a check */
+.features-done li.done::before {
+  content: "✕";
+  color: var(--flag-red);
+  text-decoration: none;
 }
 
 /* ---------- Footer ---------- */
@@ -659,17 +708,28 @@ footer a {
   }
 }
 
-/* ---------- Small screen and landscape ---------- */
+/* ---------- Landscape phones ----------
+   Board fits the height of the screen (vmin = height in
+   landscape), header slims down to give it room. */
 @media screen and (max-height: 600px) and (orientation: landscape) {
-  .ludo-board {
-    width: 172vmin;
+  header {
+    padding-top: 0.5rem;
   }
-  .dice {
-    top: 0;
+  .intro h1 {
+    font-size: 1.5rem;
+  }
+  .intro h1::after {
+    display: none;
+  }
+  .instructions {
+    display: none;
+  }
+  .yellow-wood {
+    padding: 0.6rem;
   }
 }
 
-/* ---------- Tablet and small desktop ---------- */
+/* ---------- Tablet and up ---------- */
 @media (min-width: 768px) {
   .white-border {
     padding: 1rem;
@@ -683,69 +743,247 @@ footer a {
   .mobile-none {
     display: block;
   }
-  .home {
-    padding: .5rem;
-  }
   .yellow-wood {
     padding: 2rem;
-  }
-  .ludo-board {
-    max-width: 760px;
-  }
-  .tokens {
-    grid-template-columns: repeat(2, 7vmin);
-    grid-template-rows: repeat(2, 7vmin);
-  }
-  .token {
-    width: 5vmin;
-    height: 5vmin;
   }
   .green-home .img,
   .red-home .img,
   .yellow-home .img,
   .blue-home .img {
-    margin: .5rem;
-    padding: .5rem;
-  }
-  .home .img .image-caption h2 {
-    font-size: 10px;
-  }
-  .dice {
-    top: 1rem;
-    background-color: transparent;
+    margin: calc(var(--u) * 0.5);
   }
   .center img {
     width: 80%;
   }
 }
 
-/* ---------- Large desktops ---------- */
-@media (min-width: 1200px) {
+/* ---------- Laptops and desktops ----------
+   Board on the left, one rail on the right holding the live
+   commentary (top) and About (below). Fits a 1280px laptop
+   with no horizontal scroll. */
+@media (min-width: 1100px) {
   .container {
-    align-items: flex-start;
-    flex-direction: row;
-    gap: 2.5rem;
-  }
-  .ludo-board {
-    max-width: 900px;
-  }
-  .rules {
-    flex: 1 1 0;
-    max-width: 340px;
-    position: sticky;
-    top: 1rem;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) clamp(280px, 27vw, 380px);
+    align-items: start;
+    gap: 1.5rem;
   }
   .yellow-wood {
-    flex: 0 1 auto;
-  }
-  .rules-first {
-    order: -1;
+    grid-column: 1;
+    grid-row: 1 / span 2;
+    justify-self: center;
   }
   .rules-game {
-    order: 3;
+    grid-column: 2;
+    grid-row: 1;
   }
-  .tokens {
-    grid-template-columns: repeat(2, 6vmin);
-    grid-template-rows: repeat(2, 6vmin);
+  .rules-first {
+    grid-column: 2;
+    grid-row: 2;
   }
+  /* Rail cards stack their two status boxes vertically */
+  .keeping-tabs-on-what-is-happening {
+    flex-direction: column;
+  }
+  .playing-status,
+  .player-activity-container {
+    width: 100%;
+  }
+}
+
+/* ---------- Setup screen ---------- */
+
+.setup-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--page);
+  z-index: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  overflow-y: auto;
+}
+
+.setup-overlay.is-hidden {
+  display: none;
+}
+
+.setup-card {
+  background: var(--card);
+  border: 1px solid var(--card-edge);
+  border-radius: 16px;
+  box-shadow: 0 10px 40px rgba(96, 74, 34, 0.15);
+  padding: 1.5rem 1.5rem 1.75rem;
+  width: 100%;
+  max-width: 440px;
+  margin: auto;
+}
+
+.setup-title {
+  font-family: 'Lilita One', cursive;
+  font-size: 2.2rem;
+  text-align: center;
+  color: var(--ink);
+  margin: 0 0 0.35rem;
+  text-shadow: 2px 2px 0 rgba(224, 183, 91, 0.5);
+}
+
+.setup-title::after {
+  content: "";
+  display: block;
+  width: 110px;
+  height: 5px;
+  margin: 0.5rem auto 0;
+  border-radius: 3px;
+  background: linear-gradient(
+    90deg,
+    var(--flag-red) 0 33.3%,
+    var(--gold) 33.3% 66.6%,
+    var(--flag-green) 66.6% 100%
+  );
+}
+
+.setup-section {
+  margin-top: 1.4rem;
+}
+
+.setup-section h2 {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0 0 0.55rem;
+}
+
+.setup-hint {
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 400;
+  font-size: 0.78rem;
+  color: var(--muted);
+  opacity: 0.85;
+}
+
+.setup-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.setup-choice,
+.colour-pick,
+.starter-pick {
+  font-family: 'Karla', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 700;
+  padding: 0.45rem 0.9rem;
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--ink);
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.12s ease, opacity 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.setup-choice:hover,
+.colour-pick:hover,
+.starter-pick:hover {
+  transform: scale(1.04);
+}
+
+.setup-choice.is-on,
+.colour-pick.is-on,
+.starter-pick.is-on {
+  background: var(--gold);
+}
+
+.colour-pick.is-off {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.swatch {
+  width: 0.85rem;
+  height: 0.85rem;
+  border-radius: 50%;
+  border: 1px solid rgba(0, 0, 0, 0.35);
+}
+
+.swatch-green  { background: #2ecc71; }
+.swatch-red    { background: #e74c3c; }
+.swatch-yellow { background: #f1c40f; }
+.swatch-blue   { background: #3498db; }
+
+.setup-blurb {
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin: 0.55rem 0 0;
+}
+
+.setup-advanced {
+  margin-top: 0.9rem;
+  border-top: 1px solid var(--card-edge);
+  padding-top: 0.7rem;
+}
+
+.setup-advanced summary {
+  font-family: 'Lilita One', cursive;
+  font-size: 0.9rem;
+  color: var(--gold-deep);
+  cursor: pointer;
+  user-select: none;
+}
+
+.setup-advanced label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+  padding: 0.32rem 0;
+  cursor: pointer;
+}
+
+.setup-error {
+  color: var(--flag-red);
+  font-size: 0.85rem;
+  font-weight: 700;
+  margin: 0.9rem 0 0;
+  min-height: 1.2em;
+}
+
+.setup-start {
+  font-family: 'Lilita One', cursive;
+  font-size: 1.15rem;
+  letter-spacing: 0.02em;
+  width: 100%;
+  margin-top: 0.5rem;
+  padding: 0.7rem 1rem;
+  border: none;
+  border-radius: 10px;
+  background: var(--ink);
+  color: var(--gold);
+  cursor: pointer;
+  transition: transform 0.12s ease;
+}
+
+.setup-start:hover {
+  transform: scale(1.02);
+}
+
+.setup-start:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* An inactive player's home sits quiet on the board */
+.home.is-inactive {
+  filter: grayscale(85%) brightness(0.92);
+  opacity: 0.55;
 }
