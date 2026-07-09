@@ -76,7 +76,8 @@ function createGameState() {
     currentPlayer: 'yellow',
     rolledQueue: [],   // banked values, spendable in any order
     rollCredits: 1,    // rolls available; each 6 grants one more
-    turnKick: null,    // lone-striker kick this turn: { active, tokenId, victims }
+    countsMade: 0,     // how many counts (moves) played this turn
+    turnKick: null,    // armed gotcha: { tokenId, victims } — see §7
     isMoving: false,
     awaitingChoice: false,
     gameOver: false,
@@ -104,6 +105,7 @@ function tokensOnCell(state, cellNumber) {
   return result;
 }
 
+// Tokens on the board: not in base, not retired.
 function countActiveTokens(state, color) {
   return state.players[color].tokens.filter(t => t.position > 0 && !t.retired).length;
 }
@@ -316,10 +318,32 @@ function getLegalMoves(state, roll) {
   for (const token of state.players[color].tokens) {
     if (token.retired) continue;
 
-    // Token in base: only a 6 brings it out.
+    // Token in base: only a 6 brings it out (RULES.md §3).
+    // A single opponent ON the start cell is kicked home.
+    // An opponent blockade (2+) blocks the entry entirely.
+    // Your own token there is no obstacle — you stack with it.
+    // Entry never slide-kicks: you arrive on your start cell, period.
     if (token.position === 0) {
       if (roll === 6) {
-        moves.push(buildMove(state, token, 'enter', [meta.startCell], 'forward', color));
+        const enemyWall = blockadeSizeAgainst(state, meta.startCell, color) > 0;
+        if (!enemyWall) {
+          const directKicks = tokensOnCell(state, meta.startCell)
+            .filter(t => t.color !== color)
+            .map(t => ({ ...t, via: 'direct' }));
+          moves.push({
+            tokenId: token.id,
+            kind: 'enter',
+            from: 0,
+            to: meta.startCell,
+            intendedTo: meta.startCell,
+            direction: 'forward',
+            path: [meta.startCell],
+            blocked: false,
+            blockedAt: null,
+            swapTo: null,
+            kicks: directKicks,
+          });
+        }
       }
       continue;
     }
@@ -411,26 +435,29 @@ function getLegalMoves(state, roll) {
 }
 
 // ---- Applying a move: the ONLY place token positions change ----
-// Returns what happened so the UI can narrate it. Queue removal is
-// handled by the turn flow.
+//
+// THE GOTCHA (RULES.md §7): if a player has exactly ONE active token
+// and their FIRST count of the turn kicks, they must stop there.
+// Moving that token again — with a banked value or a bonus roll —
+// undoes the kick: the victim returns to the cell it was kicked from.
+//
+// Later counts never arm it. More than one active token never arms it.
+// The game gives no warning.
 function applyMove(state, move) {
   const token = getToken(state, move.tokenId);
   const color = state.currentPlayer;
   const result = { ...move, kickReverted: false, restored: [] };
 
   if (move.blocked) {
-    // Bounce: piece never left its cell — the gotcha does NOT fire,
-    // and any earlier lone-striker kick stands.
+    // Bounce: the piece never left its cell. Not a count that moved
+    // anything — a pending kick stands.
     return result;
   }
 
-  // THE GOTCHA: the lone striker kicked earlier this turn and is now
-  // moving again — the kick is undone, victims return to their cells.
-  // The game never warned you.
+  // Is the armed striker moving again? Then its kick is undone.
   if (
     CONFIG.loneStrikerGotcha &&
     state.turnKick &&
-    state.turnKick.active &&
     state.turnKick.tokenId === move.tokenId
   ) {
     for (const victim of state.turnKick.victims) {
@@ -441,13 +468,12 @@ function applyMove(state, move) {
     state.turnKick = null;
   }
 
-  // Is THIS move a lone-striker kick? (Entering a new token doesn't
-  // count — the rule is about the lone token itself kicking.)
-  const loneStrikerKick =
-    CONFIG.loneStrikerGotcha &&
-    move.kicks.length > 0 &&
-    move.kind !== 'enter' &&
-    countActiveTokens(state, color) === 1;
+  // Arm the gotcha? Only on the very first count of the turn, only
+  // when the player has exactly one active token, only if it kicked.
+  const isFirstCount = state.countsMade === 0;
+  const lone = countActiveTokens(state, color) === 1;
+  const armsGotcha =
+    CONFIG.loneStrikerGotcha && isFirstCount && lone && move.kicks.length > 0;
 
   for (const kick of move.kicks) {
     getToken(state, kick.tokenId).position = 0;
@@ -459,13 +485,14 @@ function applyMove(state, move) {
     token.position = move.to;
   }
 
-  if (loneStrikerKick) {
+  if (armsGotcha) {
     state.turnKick = {
-      active: true,
       tokenId: move.tokenId,
       victims: move.kicks.map(k => ({ tokenId: k.tokenId, cell: k.cell })),
     };
   }
+
+  state.countsMade++;
 
   if (countRetired(state, color) === 4) {
     state.gameOver = true;
@@ -478,6 +505,7 @@ function applyMove(state, move) {
 function advanceTurn(state) {
   state.rolledQueue = [];
   state.rollCredits = 1;
+  state.countsMade = 0;
   state.turnKick = null;
   const index = TURN_ORDER.indexOf(state.currentPlayer);
   state.currentPlayer = TURN_ORDER[(index + 1) % TURN_ORDER.length];

@@ -337,19 +337,20 @@ function playMove(move) {
       setCommentary(`❌ ${color} hit a blockade wall at cell ${move.blockedAt}! Bounced back — value wasted.`);
     }
 
+    // Kicks that land: victims fly home.
     for (const kick of move.kicks) {
       sendTokenToBase(kick.tokenId);
       setCommentary(kickCommentary(color, kick));
     }
 
-    // THE GOTCHA: the lone striker moved again — its earlier kick
-    // silently un-happens; the victim strolls back to its cell.
+    // THE GOTCHA: the armed striker moved again — its kick from the
+    // first count silently un-happens and the victim strolls back.
     if (result.kickReverted) {
       for (const victim of result.restored) {
         restoreTokenToCell(victim.tokenId, victim.cell);
       }
       setCommentary(
-        `😱 GOTCHA! ${color} kicked and moved with their only token — the kick doesn't count. Back it goes!`
+        `😱 GOTCHA! ${color} kicked with their only token, then moved it again — the kick doesn't count. Back it goes!`
       );
     }
 
@@ -414,13 +415,24 @@ function presentOptions() {
   const queue = gameState.rolledQueue;
   const credits = gameState.rollCredits;
 
+  // Nothing banked and no rolls left: turn is over.
   if (queue.length === 0 && credits === 0) {
     endTurn();
     return;
   }
 
+  // Nothing banked but a roll is owed.
+  // If the player has already moved this turn, they may stop here —
+  // this is the decision the gotcha depends on: after a kick, ending
+  // the turn banks it. At the very start of a turn, they must roll.
   if (queue.length === 0) {
-    setStatus(`${gameState.currentPlayer}, roll the dice!`);
+    commentRow.innerHTML = '';
+    if (gameState.countsMade > 0) {
+      commentRow.appendChild(makeEndTurnButton());
+      setStatus(`${gameState.currentPlayer}: roll again, or end your turn to keep what you have`);
+    } else {
+      setStatus(`${gameState.currentPlayer}, roll the dice!`);
+    }
     return;
   }
 
@@ -431,8 +443,10 @@ function presentOptions() {
 
   if (!anyPlayable) {
     if (credits > 0) {
-      setStatus(`${gameState.currentPlayer}: no moves yet — roll again!`);
-      return; // values stay banked; a new roll may unlock a combination
+      commentRow.innerHTML = '';
+      commentRow.appendChild(makeEndTurnButton());
+      setStatus(`${gameState.currentPlayer}: no moves for ${queueLabel()} — roll again, or end your turn`);
+      return;
     }
     setCommentary(
       `No legal moves for ${gameState.currentPlayer}'s remaining values (${queueLabel()}) — burned.`
@@ -442,13 +456,19 @@ function presentOptions() {
     return;
   }
 
-  // A single value with no rolls left: no combination choice exists.
-  if (queue.length === 1 && credits === 0) {
-    spendValues([0]);
-    return;
-  }
-
   showValueChips();
+}
+
+// "Stop here" — the decision the gotcha depends on. Banks any kick
+// made this turn and forfeits unspent values and rolls.
+function makeEndTurnButton() {
+  const btn = makeButton('■ End turn', () => {
+    clearChoices();
+    gameState.rolledQueue.length = 0;
+    endTurn();
+  });
+  btn.style.fontWeight = '800';
+  return btn;
 }
 
 // Value chips: tap to select one or more, then Count them together.
@@ -461,7 +481,7 @@ function showValueChips() {
     `${gameState.currentPlayer}'s values: ${queueLabel()}`;
   setStatus(
     gameState.rollCredits > 0
-      ? `${gameState.currentPlayer}: tap value(s) to count together, or roll again`
+      ? `${gameState.currentPlayer}: count your value(s), roll again, or end your turn`
       : `${gameState.currentPlayer}: tap value(s) to count together`
   );
 }
@@ -490,6 +510,12 @@ function renderChips() {
     });
     go.style.fontWeight = '800';
     commentRow.appendChild(go);
+  }
+
+  // The stop. Only meaningful once the player has moved and still
+  // holds a roll — that's when ending the turn banks a kick.
+  if (gameState.rollCredits > 0 && gameState.countsMade > 0) {
+    commentRow.appendChild(makeEndTurnButton());
   }
 }
 
